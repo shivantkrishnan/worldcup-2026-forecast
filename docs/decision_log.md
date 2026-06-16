@@ -296,3 +296,23 @@ Rolling form summarizes recent team outcomes but does not directly adjust for op
 ### Implications for Modeling/Product
 
 The first Elo implementation uses initial rating `1500.0`, K-factor `20.0`, and the standard expected-score update. Ratings are emitted as pre-match features and update only after the relevant match/date block, so same-date results cannot leak into same-date feature rows. Elo features are ready for later baseline evaluation but are not yet used to retrain or reselect a model.
+
+## 2026-06-16
+
+### Decision
+
+Select rolling team-form plus pre-match Elo features as the current baseline feature set.
+
+### Rationale
+
+Elo was evaluated against the rolling-form-only feature set using the same sigmoid-calibrated logistic regression model family. Elo improved single-holdout log loss from `1.203647` to `1.202032` and rolling-origin mean log loss from `1.201547` to `1.197716`. It improved rolling-origin log loss in 5 of 6 windows and Brier score in 6 of 6 windows.
+
+### Alternatives Considered
+
+- Keep the rolling-form-only selected baseline until Elo calibration improves.
+- Treat Elo as experimental despite better log loss because mean ECE worsened.
+- Tune Elo hyperparameters before selecting the feature family.
+
+### Implications for Modeling/Product
+
+The selected baseline changes to sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features. The selection remains provisional because Elo improves ECE in only 2 of 6 rolling-origin windows and worsens mean ECE. Next work should refine Elo, especially home advantage, neutral-site handling, K-factor choice, margin-of-victory adjustment, and calibration.

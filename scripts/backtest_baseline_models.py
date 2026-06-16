@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -10,13 +11,34 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data.pipeline import load_baseline_training_matches  # noqa: E402
-from src.features.team_form import build_match_level_features  # noqa: E402
+from src.features.build_features import build_modeling_features  # noqa: E402
 from src.models.backtest import (  # noqa: E402
     aggregate_backtest_results,
     format_metric_mean_std,
     run_rolling_origin_backtest,
     summarize_backtest_results,
 )
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line options."""
+    parser = argparse.ArgumentParser(
+        description="Run rolling-origin baseline backtests without writing artifacts."
+    )
+    parser.add_argument(
+        "--include-elo",
+        action="store_true",
+        help="Include leakage-safe pre-match Elo features.",
+    )
+    return parser.parse_args(argv)
+
+
+def build_features_for_backtest(
+    baseline_matches,
+    include_elo: bool = False,
+):
+    """Build the feature table used by this backtest script."""
+    return build_modeling_features(baseline_matches, include_elo=include_elo)
 
 
 def _print_aggregate_metrics(aggregate: dict[str, object]) -> None:
@@ -47,21 +69,26 @@ def _format_share(count: int, share: float | None, total: int) -> str:
     return f"{count}/{total} ({share:.1%})"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Run rolling-origin baseline model backtests."""
+    args = parse_args(argv)
     try:
         baseline_matches = load_baseline_training_matches()
     except FileNotFoundError as error:
         print(f"Missing historical results data: {error}")
         return 1
 
-    features = build_match_level_features(baseline_matches)
+    features = build_features_for_backtest(
+        baseline_matches,
+        include_elo=args.include_elo,
+    )
     results = run_rolling_origin_backtest(features)
     summary = summarize_backtest_results(results)
     aggregate = aggregate_backtest_results(summary)
 
     print("Rolling-Origin Baseline Backtest")
     print("================================")
+    print(f"include_elo: {args.include_elo}")
     print(f"splits: {aggregate['split_count']}")
     print(f"evaluated splits: {aggregate['evaluated_split_count']}")
 

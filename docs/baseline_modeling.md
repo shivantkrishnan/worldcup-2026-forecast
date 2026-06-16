@@ -76,11 +76,25 @@ Calibration diagnostics include expected calibration error and confidence-bin su
 
 ## Current Selected Baseline
 
-The current selected baseline is sigmoid-calibrated logistic regression.
+The current selected baseline is sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features.
 
-Selection is based primarily on rolling-origin log loss stability. The calibrated logistic model has the best mean rolling-origin log loss and beats uncalibrated logistic regression on log loss in all 6 rolling-origin windows.
+Selection is based primarily on rolling-origin log loss stability. The Elo-augmented calibrated logistic model improves rolling-origin mean log loss over the rolling-form-only selected model.
 
-This is a probability-quality selection, not a claim that every metric improves. In the current results, ECE, Brier score, and accuracy do not uniformly improve, so calibration caveats remain important.
+This is a probability-quality selection, not a claim that every metric improves. Elo improves Brier score and accuracy in the current comparison, but worsens mean ECE, so calibration caveats remain important.
+
+## Elo Feature Evaluation
+
+The first Elo feature evaluation compares rolling team-form only against rolling team-form plus pre-match Elo features using the selected sigmoid-calibrated logistic model.
+
+Rolling-origin selected-model results:
+
+- No-Elo log loss: `1.201547 +/- 0.011609`.
+- Elo log loss: `1.197716 +/- 0.013559`.
+- Elo improves log loss in 5 of 6 rolling-origin windows.
+- Elo improves Brier score in 6 of 6 rolling-origin windows.
+- Elo improves ECE in 2 of 6 rolling-origin windows.
+
+The current selected baseline feature set therefore includes Elo, but the calibration caveat remains.
 
 ## Class-Prior Baseline
 
@@ -92,13 +106,13 @@ The logistic model should beat this baseline on log loss and Brier score before 
 
 Current limitations:
 
-- Features are limited to team-form history.
-- No Elo, opponent-strength, player, market, or tournament-stage features yet.
+- Features are limited to rolling team-form and simple Elo-style strength.
+- No player, market, or tournament-stage features yet.
 - Missing values are handled with a simple median-imputation strategy.
 - No hyperparameter tuning.
 - Calibration comparison is limited to the first sigmoid-calibrated logistic variant.
 - Rolling-origin backtesting is implemented, but deeper tournament-specific backtests are still future work.
-- Current model selection is provisional until richer feature families are evaluated.
+- Current model selection is provisional until richer Elo variants and other feature families are evaluated.
 - No artifact writing by default.
 
 ## Next Candidates
@@ -108,7 +122,7 @@ Possible next model or feature candidates:
 - Regularized logistic regression variants.
 - Random forest.
 - Gradient boosting.
-- Elo or rating features.
+- Home-advantage, margin-of-victory, or tournament-weighted Elo variants.
 - Player-form features.
 - Market or odds-implied features.
 - Additional calibration methods such as isotonic calibration.

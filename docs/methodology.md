@@ -106,9 +106,11 @@ The baseline evaluation also compares an internally calibrated logistic regressi
 
 Rolling-origin backtests refit preprocessing, imputation, scaling, logistic regression, and calibration independently inside each training window.
 
-Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected baseline. Selection is based primarily on rolling-origin log loss stability: the calibrated model beats uncalibrated logistic regression on log loss in all 6 rolling-origin windows and has the best mean rolling-origin log loss.
+Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected model family. The selected feature set now includes leakage-safe rolling team-form plus pre-match Elo features.
 
-This selection is provisional. Expected calibration error does not consistently improve, so calibration caveats remain part of any dashboard or report language.
+Selection is based primarily on rolling-origin log loss stability. Adding Elo improves the selected model's rolling-origin mean log loss from `1.201547` to `1.197716` and improves log loss in 5 of 6 rolling-origin windows.
+
+This selection is provisional. Expected calibration error does not consistently improve, and Elo worsens mean ECE, so calibration caveats remain part of any dashboard or report language.
 
 ## Calibration and Uncertainty
 
@@ -151,19 +153,19 @@ The project should be clear about whether odds are used for benchmarking, calibr
 Current limitations:
 
 - Only the first leakage-safe team-form feature layer has been implemented.
-- A simple leakage-safe Elo feature family has been implemented but not yet evaluated in the baseline model.
+- A simple leakage-safe Elo feature family has been implemented and selected into the baseline feature set by rolling-origin mean log loss.
 - Only the first simple baseline model has been implemented.
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
 - Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available.
 - Rolling-origin backtesting is available for baseline model stability checks.
-- The current selected baseline is sigmoid-calibrated logistic regression by rolling-origin mean log loss.
+- The current selected baseline is sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.
 
 Future improvements:
 
-- Evaluate Elo-style and opponent-adjusted team strength features.
+- Improve Elo-style and opponent-adjusted team strength features.
 - Backtesting over prior World Cups and major tournaments.
 - Calibrated model comparisons.
 - Hyperparameter tuning and stronger model families.

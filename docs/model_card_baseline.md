@@ -4,7 +4,7 @@
 
 `calibrated_logistic_regression`
 
-Current selected baseline: sigmoid-calibrated multinomial logistic regression over leakage-safe team-form features.
+Current selected baseline: sigmoid-calibrated multinomial logistic regression over leakage-safe rolling team-form and pre-match Elo features.
 
 ## Intended Use
 
@@ -55,7 +55,7 @@ For the raw historical dataset, `team_a` maps to `home_team` and `team_b` maps t
 
 ## Features Used
 
-The baseline uses leakage-safe team-form features built from a long team-match panel.
+The baseline uses leakage-safe team-form features built from a long team-match panel plus pre-match Elo-style team strength features.
 
 Feature groups include:
 
@@ -64,8 +64,14 @@ Feature groups include:
 - Rolling points, goals, goal difference, win/draw/loss rates.
 - Expanding points, goal difference, and win rate.
 - Match-level differential features comparing `team_a` to `team_b`.
+- Pre-match Elo ratings for both teams.
+- Elo rating difference from `team_a`'s perspective.
+- Elo expected score for `team_a`.
+- Prior Elo match counts for both teams.
 
 Current-match outcomes are excluded from feature calculations through shift/lag logic before rolling or expanding calculations.
+
+Elo features are emitted before rating updates. Because only match dates are available, ratings are updated after the full date block so same-date results cannot affect same-date feature rows.
 
 ## Validation Design
 
@@ -87,27 +93,25 @@ Secondary metric:
 
 - Accuracy.
 
-Single-holdout results:
+Single-holdout selected-model results:
 
-| Model | Log Loss | Brier | Accuracy | ECE |
+| Feature Set / Model | Log Loss | Brier | Accuracy | ECE |
 | --- | ---: | ---: | ---: | ---: |
-| Class-prior | 1.242354 | 0.633661 | 0.477775 | n/a |
-| Logistic regression | 1.250315 | 0.544684 | 0.580688 | 0.026670 |
-| Sigmoid-calibrated logistic regression | 1.203647 | 0.548502 | 0.579812 | 0.032929 |
+| No-Elo calibrated logistic | 1.203647 | 0.548502 | 0.579812 | 0.032929 |
+| Elo calibrated logistic | 1.202032 | 0.521968 | 0.596891 | 0.032373 |
 
-Rolling-origin log-loss results:
+Rolling-origin selected-model results:
 
-| Model | Mean Log Loss | Std Log Loss |
-| --- | ---: | ---: |
-| Class-prior | 1.242557 | 0.009398 |
-| Logistic regression | 1.253098 | 0.015040 |
-| Sigmoid-calibrated logistic regression | 1.201547 | 0.011609 |
+| Feature Set | Mean Log Loss | Std Log Loss | Mean Brier | Mean Accuracy | Mean ECE |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| No-Elo | 1.201547 | 0.011609 | 0.546613 | 0.574590 | 0.035931 |
+| With Elo | 1.197716 | 0.013559 | 0.521043 | 0.594158 | 0.039863 |
 
 ## Calibration Notes
 
-The selected baseline improves log loss consistently across rolling-origin windows, beating uncalibrated logistic regression on log loss in 6 of 6 splits.
+The selected baseline feature set improves rolling-origin mean log loss over the no-Elo feature set and improves calibrated-logistic log loss in 5 of 6 rolling-origin windows.
 
-However, it does not consistently improve expected calibration error. It beats uncalibrated logistic regression on ECE in only 1 of 6 rolling-origin splits.
+However, it does not consistently improve expected calibration error. Elo improves ECE in only 2 of 6 rolling-origin windows and has worse mean ECE than the no-Elo selected model.
 
 The model should therefore be described as the current probability-quality baseline, not as a fully calibrated or final model.
 
@@ -115,8 +119,8 @@ The model should therefore be described as the current probability-quality basel
 
 Known limitations:
 
-- Only team-form features are included.
-- No Elo or opponent-adjusted strength features yet.
+- Only rolling team-form and simple Elo features are included.
+- Elo has no home advantage, margin-of-victory, tournament weighting, or uncertainty adjustment yet.
 - No player, squad, market, or tactical inputs.
 - No tournament-specific backtesting yet.
 - Calibration is limited to sigmoid calibration.
@@ -133,8 +137,8 @@ The dashboard should present probabilities with uncertainty-aware language. It s
 
 Next planned improvements:
 
-- Add Elo-style team strength features.
-- Rerun feature readiness, single-holdout evaluation, and rolling-origin backtests.
-- Compare whether Elo improves log loss, Brier score, and calibration diagnostics.
+- Add home advantage and neutral-site rating logic.
+- Compare Elo K-factor values.
+- Evaluate margin-of-victory and tournament-weighted Elo variants.
 - Add tournament-specific validation over prior World Cups and major tournaments.
 - Revisit calibration methods after stronger feature sets are available.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -14,8 +15,29 @@ from src.features.feature_audit import (  # noqa: E402
     audit_feature_readiness,
     summarize_feature_audit,
 )
-from src.features.team_form import build_match_level_features  # noqa: E402
+from src.features.build_features import build_modeling_features  # noqa: E402
 from src.models.baseline import train_baseline_model  # noqa: E402
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line options."""
+    parser = argparse.ArgumentParser(
+        description="Train/evaluate baseline models without writing artifacts."
+    )
+    parser.add_argument(
+        "--include-elo",
+        action="store_true",
+        help="Include leakage-safe pre-match Elo features.",
+    )
+    return parser.parse_args(argv)
+
+
+def build_features_for_training(
+    baseline_matches,
+    include_elo: bool = False,
+):
+    """Build the feature table used by this training script."""
+    return build_modeling_features(baseline_matches, include_elo=include_elo)
 
 
 def _print_distribution(title: str, distribution: dict[str, int]) -> None:
@@ -36,21 +58,26 @@ def _print_ece(title: str, summary: dict[str, object]) -> None:
     print(f"{title}: {summary['expected_calibration_error']:.6f}")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Run the first baseline training milestone."""
+    args = parse_args(argv)
     try:
         baseline_matches = load_baseline_training_matches()
     except FileNotFoundError as error:
         print(f"Missing historical results data: {error}")
         return 1
 
-    features = build_match_level_features(baseline_matches)
+    features = build_features_for_training(
+        baseline_matches,
+        include_elo=args.include_elo,
+    )
     readiness_report = audit_feature_readiness(features)
     result = train_baseline_model(features)
 
     print(summarize_feature_audit(readiness_report))
     print("\nBaseline Model Training")
     print("=======================")
+    print(f"include_elo: {args.include_elo}")
     print(f"feature_count: {len(result['feature_columns'])}")
     print(f"train_row_count: {result['train_row_count']:,}")
     print(f"test_row_count: {result['test_row_count']:,}")

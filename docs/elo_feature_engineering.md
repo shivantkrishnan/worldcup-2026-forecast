@@ -88,3 +88,11 @@ Future Elo-style extensions may include:
 - Glicko-style uncertainty or rating deviation.
 
 Each extension should be evaluated with the same feature audit, single-holdout validation, rolling-origin backtesting, and model selection process.
+
+## Evaluation Summary
+
+The first simple Elo feature set was evaluated against the rolling-form-only baseline using the same sigmoid-calibrated logistic regression model family.
+
+Elo increased the feature count from 57 to 63 numeric features. It improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197716` and improved rolling-origin Brier score in all 6 windows.
+
+The calibration caveat remains: Elo improved ECE in only 2 of 6 rolling-origin windows and worsened mean ECE. The selected baseline now includes Elo features because log loss is the primary selection metric, but further calibration and rating refinement are still needed.
