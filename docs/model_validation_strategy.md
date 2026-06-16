@@ -38,6 +38,8 @@ For every split, preprocessing, imputation, scaling, logistic regression, and ca
 
 Rolling-origin backtests help evaluate stability across time instead of relying on one holdout period. Mean metrics summarize average performance, standard deviations show volatility, and per-window wins/losses reveal whether one model consistently beats another.
 
+The current selected baseline is sigmoid-calibrated logistic regression because it has the best rolling-origin mean log loss and wins all rolling-origin windows against uncalibrated logistic regression on log loss. This selection remains provisional because ECE does not improve consistently.
+
 ## Tournament Backtesting
 
 Future backtests should evaluate prior World Cups and major international tournaments. This is important because tournament matches differ from friendlies and qualifiers in incentives, squad selection, neutral venues, and pressure.

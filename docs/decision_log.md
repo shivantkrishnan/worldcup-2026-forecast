@@ -256,3 +256,23 @@ The calibrated logistic model improved log loss on the single holdout but did no
 ### Implications for Modeling/Product
 
 Baseline comparisons now include expanding-window rolling-origin summaries. Each split refits preprocessing, imputation, scaling, logistic regression, and calibration using training rows only. Aggregate results report mean/std metrics and per-window model wins.
+
+## 2026-06-16
+
+### Decision
+
+Select sigmoid-calibrated logistic regression as the current baseline model by rolling-origin mean log loss.
+
+### Rationale
+
+The calibrated logistic model has the best single-holdout log loss and the best rolling-origin mean log loss. It beats uncalibrated logistic regression on log loss in all 6 rolling-origin windows.
+
+### Alternatives Considered
+
+- Select the class-prior baseline because it beats uncalibrated logistic regression on log loss.
+- Select uncalibrated logistic regression because it has slightly better single-holdout Brier score, accuracy, and ECE.
+- Delay selection until after adding Elo features.
+
+### Implications for Modeling/Product
+
+The selection is provisional because ECE does not consistently improve: calibrated logistic regression beats uncalibrated logistic regression on ECE in only 1 of 6 rolling-origin splits. The next feature family should be Elo-style team strength, followed by the same single-holdout and rolling-origin validation process.

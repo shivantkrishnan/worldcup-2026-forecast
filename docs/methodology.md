@@ -104,6 +104,10 @@ The baseline evaluation also compares an internally calibrated logistic regressi
 
 Rolling-origin backtests refit preprocessing, imputation, scaling, logistic regression, and calibration independently inside each training window.
 
+Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected baseline. Selection is based primarily on rolling-origin log loss stability: the calibrated model beats uncalibrated logistic regression on log loss in all 6 rolling-origin windows and has the best mean rolling-origin log loss.
+
+This selection is provisional. Expected calibration error does not consistently improve, so calibration caveats remain part of any dashboard or report language.
+
 ## Calibration and Uncertainty
 
 Forecasts should be evaluated as probabilities. Calibration matters because users need to know whether a predicted 60 percent chance behaves like a real 60 percent chance over comparable matches.
@@ -149,6 +153,7 @@ Current limitations:
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
 - Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available.
 - Rolling-origin backtesting is available for baseline model stability checks.
+- The current selected baseline is sigmoid-calibrated logistic regression by rolling-origin mean log loss.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.

@@ -105,9 +105,13 @@ Methodology and project decisions are tracked continuously in:
 docs/methodology.md
 docs/decision_log.md
 docs/methodology_checklist.md
+docs/model_selection_report.md
+docs/model_card_baseline.md
 ```
 
 These notes are intended to become the methodology section of the dashboard or website.
+
+The current baseline selection is summarized in `docs/model_selection_report.md`, and the baseline model card is in `docs/model_card_baseline.md`.
 
 ## Environment Troubleshooting
 

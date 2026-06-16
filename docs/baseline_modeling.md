@@ -74,6 +74,14 @@ The default calibration method is sigmoid because it is sample-efficient and les
 
 Calibration diagnostics include expected calibration error and confidence-bin summaries. This helps explain cases where logistic regression improves accuracy or Brier score but worsens log loss due to overconfident wrong predictions.
 
+## Current Selected Baseline
+
+The current selected baseline is sigmoid-calibrated logistic regression.
+
+Selection is based primarily on rolling-origin log loss stability. The calibrated logistic model has the best mean rolling-origin log loss and beats uncalibrated logistic regression on log loss in all 6 rolling-origin windows.
+
+This is a probability-quality selection, not a claim that every metric improves. In the current results, ECE, Brier score, and accuracy do not uniformly improve, so calibration caveats remain important.
+
 ## Class-Prior Baseline
 
 The class-prior baseline predicts the training-set class distribution for every test match. It is intentionally simple and provides a sanity check.
@@ -90,6 +98,7 @@ Current limitations:
 - No hyperparameter tuning.
 - Calibration comparison is limited to the first sigmoid-calibrated logistic variant.
 - Rolling-origin backtesting is implemented, but deeper tournament-specific backtests are still future work.
+- Current model selection is provisional until richer feature families are evaluated.
 - No artifact writing by default.
 
 ## Next Candidates
