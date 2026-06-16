@@ -175,3 +175,23 @@ Canonical match rows contain both teams, but rolling form is naturally team-spec
 ### Implications for Modeling/Product
 
 The first feature set is interpretable and leakage-safe. Match-level features compare `team_a` and `team_b` by subtracting team-level feature values from `team_a`'s perspective.
+
+## 2026-06-16
+
+### Decision
+
+Audit match-level feature readiness before baseline model training.
+
+### Rationale
+
+The first rolling feature layer intentionally produces missing values for teams with insufficient prior history. Before training, the project needs an explicit report of numeric candidate features, missingness, target distributions, train/test split sizes, and excluded non-numeric columns.
+
+### Alternatives Considered
+
+- Move directly from feature generation to model training.
+- Let the model pipeline handle missingness without a pre-training audit.
+- Drop early-history rows automatically.
+
+### Implications for Modeling/Product
+
+Missing rolling-history values are expected but must be handled explicitly later. The readiness audit follows the same time-aware split philosophy as model validation and helps decide whether baseline training inputs are acceptable.

@@ -82,6 +82,10 @@ The first team-form feature layer transforms canonical matches into a long team-
 
 Initial features should be simple and interpretable before adding complexity. Each new feature group should be justified by football intuition and tested by whether it improves probabilistic forecast quality.
 
+Feature readiness is audited before baseline training. The audit uses the same time-aware split philosophy as model validation and reports target balance, feature missingness, high-missingness features, fully missing features, and excluded non-numeric feature candidates.
+
+Missing rolling-history values are expected for early team histories and full-window rolling features. The later model pipeline must handle them explicitly through documented imputation, filtering, or model choices.
+
 ## Model Evaluation Metrics
 
 Primary metrics:
@@ -132,6 +136,7 @@ Current limitations:
 
 - Only the first leakage-safe team-form feature layer has been implemented.
 - No model has been trained yet.
+- Missing feature values are audited but not yet handled by a model pipeline.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.

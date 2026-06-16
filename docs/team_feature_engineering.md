@@ -37,6 +37,19 @@ Recent form windows can capture meaningful changes in team performance, fitness,
 
 The first feature set starts with interpretable rolling and expanding summaries. More complex features should be added only after they improve log loss, Brier score, and calibration.
 
+## Feature Readiness Audit
+
+Before baseline model training, the match-level feature table is audited in memory. The audit reports:
+
+- Numeric candidate feature columns.
+- Train/test row counts using the default time-aware split.
+- Target distributions in train and test windows.
+- Missingness by feature overall, in train, and in test.
+- Fully missing and high-missingness features.
+- Non-numeric candidate columns excluded from model features.
+
+Missing rolling-history values are expected for early-team-history rows and rolling windows. The model pipeline must handle these values explicitly later rather than relying on silent defaults.
+
 ## Economic and Statistical Intuition
 
 Forecasts should mimic information available before the match. A bettor, analyst, coach, or dashboard user cannot know the current match's result before kickoff. The feature pipeline therefore treats each match as a forecast made with prior information only.
