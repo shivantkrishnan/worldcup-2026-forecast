@@ -80,6 +80,8 @@ def test_missing_required_column_fails() -> None:
 
 def test_invalid_neutral_type_fails() -> None:
     matches = make_valid_canonical_matches()
+    matches["neutral"] = matches["neutral"].astype(object)
+    matches["is_neutral"] = matches["is_neutral"].astype(object)
     matches.loc[0, "neutral"] = "FALSE"
     matches.loc[1, "is_neutral"] = "TRUE"
 
