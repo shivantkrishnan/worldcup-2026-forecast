@@ -9,12 +9,13 @@ Build an end-to-end machine learning pipeline:
 1. Load historical international football results.
 2. Clean and validate match records.
 3. Build leakage-safe rolling features using only matches before each prediction date.
-4. Train a calibrated 3-class match outcome model:
+4. Train a calibrated 3-class match outcome model using a default training cutoff date of `2026-06-10`:
    - Team A win
    - Draw
    - Team B win
-5. Evaluate with probabilistic metrics.
-6. Serve predictions in a Streamlit match predictor.
+5. Support both pre-tournament and live forecasting.
+6. Evaluate predictions with probabilistic metrics and audit logs.
+7. Serve predictions in a Streamlit match predictor.
 
 Primary evaluation metrics:
 
@@ -28,6 +29,8 @@ Primary evaluation metrics:
 .
 ├── app/
 ├── data/
+│   ├── predictions/
+│   ├── tournament/
 │   ├── raw/
 │   └── processed/
 ├── docs/
@@ -89,17 +92,33 @@ python -m streamlit run app/streamlit_app.py
 
 Raw datasets belong in `data/raw/` and must not be committed. Processed datasets belong in `data/processed/` and should be reproducible from scripts whenever possible.
 
+Tournament fixtures, current tournament state, and prediction logs have their own proposed schemas in `docs/data_schemas.md`.
+
 External APIs are intentionally out of scope for the first version.
+
+## Forecasting Modes
+
+The project distinguishes between three forecast modes:
+
+- `pre_tournament_forecast`: trains only on historical data available before `2026-06-10` and produces ex-ante predictions from the original tournament state.
+- `live_forecast`: uses the pre-tournament trained model while allowing completed 2026 World Cup matches to update standings, bracket state, and remaining-match simulations.
+- `prediction_audit`: compares predicted probabilities against actual completed outcomes using log loss, Brier score, and calibration diagnostics.
+
+Completed 2026 World Cup matches are allowed for standings, tournament state, evaluation, and live simulation state. They must not be used to train the first baseline model.
+
+Predictions for matches already completed before logging begins should be marked as backfilled. Predictions made going forward should be timestamped before kickoff.
 
 ## MVP Roadmap
 
 1. Define canonical schema for historical international match results.
 2. Implement cleaning and outcome labeling.
 3. Build leakage-safe rolling team features.
-4. Train a baseline multinomial logistic regression model.
-5. Evaluate log loss, Brier score, and calibration.
-6. Save model artifacts and prediction metadata.
-7. Build a simple Streamlit match predictor.
+4. Train a baseline multinomial logistic regression model with `training_cutoff_date = 2026-06-10`.
+5. Define fixtures, results, and prediction-log schemas for live forecasting.
+6. Evaluate log loss, Brier score, and calibration.
+7. Add prediction audit output that distinguishes logged pre-match predictions from backfilled predictions.
+8. Save model artifacts and prediction metadata.
+9. Build a simple Streamlit match predictor.
 
 ## Extension Ideas
 
