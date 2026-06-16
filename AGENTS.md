@@ -20,6 +20,7 @@ The first model predicts a 3-class result:
 - Treat accuracy as secondary.
 - Prevent target leakage. Rolling or historical features must only use matches played before the prediction date.
 - Compute team-form features from a long team-match panel, using shift/lag logic before rolling or expanding calculations so current-match outcomes are excluded.
+- Compute rating-style features as pre-match state variables. Ratings update only after the match or date block being predicted; if only date-level timestamps are available, same-date results must not affect features for other matches on that date.
 - Use time-aware train/test splits by default. Random splits are not primary because football team strength changes over time and random validation can leak context across eras.
 - Do not use external APIs until the project explicitly adds that milestone.
 - Do not commit raw datasets.

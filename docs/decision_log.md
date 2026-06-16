@@ -276,3 +276,23 @@ The calibrated logistic model has the best single-holdout log loss and the best 
 ### Implications for Modeling/Product
 
 The selection is provisional because ECE does not consistently improve: calibrated logistic regression beats uncalibrated logistic regression on ECE in only 1 of 6 rolling-origin splits. The next feature family should be Elo-style team strength, followed by the same single-holdout and rolling-origin validation process.
+
+## 2026-06-16
+
+### Decision
+
+Add simple Elo-style team strength as the next opponent-adjusted feature family.
+
+### Rationale
+
+Rolling form summarizes recent team outcomes but does not directly adjust for opponent strength. Elo-style ratings add a compact pre-match state variable that updates more for surprising results than expected results.
+
+### Alternatives Considered
+
+- Add a richer rating system immediately.
+- Add player or squad strength before opponent-adjusted team ratings.
+- Use only rolling form until a stronger model family is introduced.
+
+### Implications for Modeling/Product
+
+The first Elo implementation uses initial rating `1500.0`, K-factor `20.0`, and the standard expected-score update. Ratings are emitted as pre-match features and update only after the relevant match/date block, so same-date results cannot leak into same-date feature rows. Elo features are ready for later baseline evaluation but are not yet used to retrain or reselect a model.

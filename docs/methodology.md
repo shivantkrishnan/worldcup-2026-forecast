@@ -82,6 +82,8 @@ Features must be leakage-safe. Rolling features must use only matches before the
 
 The first team-form feature layer transforms canonical matches into a long team-match panel, shifts team outcomes by one match, and then computes rolling or expanding features from prior matches only.
 
+The second team-level feature family is Elo-style team strength. Elo ratings are opponent-adjusted pre-match state variables. Ratings are emitted before updating with the current result, and when only date-level timestamps are available, updates are applied after the full date block so same-date results cannot leak into same-date features.
+
 Initial features should be simple and interpretable before adding complexity. Each new feature group should be justified by football intuition and tested by whether it improves probabilistic forecast quality.
 
 Feature readiness is audited before baseline training. The audit uses the same time-aware split philosophy as model validation and reports target balance, feature missingness, high-missingness features, fully missing features, and excluded non-numeric feature candidates.
@@ -149,6 +151,7 @@ The project should be clear about whether odds are used for benchmarking, calibr
 Current limitations:
 
 - Only the first leakage-safe team-form feature layer has been implemented.
+- A simple leakage-safe Elo feature family has been implemented but not yet evaluated in the baseline model.
 - Only the first simple baseline model has been implemented.
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
 - Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available.
@@ -160,7 +163,7 @@ Current limitations:
 
 Future improvements:
 
-- Elo-style and opponent-adjusted team strength features.
+- Evaluate Elo-style and opponent-adjusted team strength features.
 - Backtesting over prior World Cups and major tournaments.
 - Calibrated model comparisons.
 - Hyperparameter tuning and stronger model families.

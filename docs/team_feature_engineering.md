@@ -74,11 +74,18 @@ Forecasts should mimic information available before the match. A bettor, analyst
 
 The implementation can calculate the rolling averages and rates for each requested rolling window. The default windows are 5 and 10 matches.
 
+## Elo Team Strength Features
+
+Elo-style ratings are the second team-level feature family. They summarize opponent-adjusted team strength as a pre-match state variable.
+
+Elo features are emitted before rating updates. Because the current dataset has match dates but not reliable kickoff timestamps, ratings are updated after each date block. This prevents same-date results from affecting features for other matches on that same date.
+
+The first Elo implementation is intentionally simple: initial rating `1500.0`, K-factor `20.0`, standard expected-score formula, and draw score `0.5`. It is ready for later model evaluation but is not yet part of the default baseline feature table.
+
 ## Later Feature Sets
 
 Later feature sets may add:
 
-- Elo or rating-style team strength.
 - Squad strength and player live form.
 - Market or odds-implied expectations.
 - Tournament-specific context.
