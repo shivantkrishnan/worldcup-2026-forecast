@@ -195,3 +195,24 @@ The first rolling feature layer intentionally produces missing values for teams 
 ### Implications for Modeling/Product
 
 Missing rolling-history values are expected but must be handled explicitly later. The readiness audit follows the same time-aware split philosophy as model validation and helps decide whether baseline training inputs are acceptable.
+
+## 2026-06-16
+
+### Decision
+
+Implement the first baseline model as a train-only preprocessing pipeline plus multinomial logistic regression, compared against a class-prior baseline.
+
+### Rationale
+
+The first model should be simple, interpretable, and probabilistic. Logistic regression gives a clean benchmark over leakage-safe team-form features. A class-prior baseline verifies that the model improves over always predicting the training-set outcome distribution.
+
+### Alternatives Considered
+
+- Train a tree-based model first.
+- Tune hyperparameters before establishing the simplest benchmark.
+- Drop rows with missing rolling-history features.
+- Impute missing values before splitting.
+
+### Implications for Modeling/Product
+
+Missing rolling-history values are handled inside the model pipeline using median imputation plus missingness indicators fit only on training rows. Evaluation uses the time-aware holdout and prioritizes log loss, multiclass Brier score, and calibration diagnostics.

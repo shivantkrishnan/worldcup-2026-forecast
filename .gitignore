@@ -28,7 +28,7 @@ data/processed/*
 !data/processed/.gitkeep
 
 # Model artifacts
-models/
+/models/
 artifacts/
 *.pkl
 *.joblib

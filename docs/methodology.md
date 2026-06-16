@@ -96,6 +96,8 @@ Primary metrics:
 
 Accuracy is secondary because the dashboard forecasts probabilities, not just labels.
 
+The first baseline compares a class-prior probability model against a multinomial logistic regression model. Missing rolling-history values are handled inside the scikit-learn pipeline with train-fitted median imputation plus missingness indicators, followed by scaling and logistic regression.
+
 ## Calibration and Uncertainty
 
 Forecasts should be evaluated as probabilities. Calibration matters because users need to know whether a predicted 60 percent chance behaves like a real 60 percent chance over comparable matches.
@@ -135,8 +137,8 @@ The project should be clear about whether odds are used for benchmarking, calibr
 Current limitations:
 
 - Only the first leakage-safe team-form feature layer has been implemented.
-- No model has been trained yet.
-- Missing feature values are audited but not yet handled by a model pipeline.
+- Only the first simple baseline model has been implemented.
+- Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.
@@ -146,6 +148,7 @@ Future improvements:
 - Elo-style and opponent-adjusted team strength features.
 - Backtesting over prior World Cups and major tournaments.
 - Calibrated model comparisons.
+- Hyperparameter tuning and stronger model families.
 - Player-level live form extension.
 - Market-implied probability benchmarks.
 - Reproducible processed data artifacts once the policy is defined.

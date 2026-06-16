@@ -83,6 +83,14 @@ python scripts/audit_historical_results.py
 
 The audit prints descriptive diagnostics only and does not write processed data.
 
+Run the baseline model training script:
+
+```bash
+python scripts/train_baseline_model.py
+```
+
+The training script prints metrics and calibration diagnostics only; it does not write model artifacts by default.
+
 Methodology and project decisions are tracked continuously in:
 
 ```text

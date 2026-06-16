@@ -41,6 +41,8 @@ Primary metrics:
 
 Accuracy is secondary because the project forecasts probabilities.
 
+The first baseline reports both a class-prior model and multinomial logistic regression on the same time-aware holdout, so improvement over a naive probabilistic baseline is visible.
+
 ## Economic and Statistical Intuition
 
 The validation design should resemble a real forecasting decision. At prediction time, the model should only know information available before kickoff. This is both a statistical leakage rule and a practical economic rule: forecasts are useful only if they could have been made before the outcome was known.
