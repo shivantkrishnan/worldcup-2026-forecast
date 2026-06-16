@@ -20,11 +20,13 @@
 ### 3. Cleaning and Labels
 
 - Standardize dates, team names, and score columns.
+- Convert raw `home_team` and `away_team` fields into the canonical `team_a` and `team_b` schema.
 - Drop or quarantine incomplete records.
 - Create 3-class labels:
   - `team_a_win`
   - `draw`
   - `team_b_win`
+- Add deterministic `match_id`, goal summaries, and baseline cutoff eligibility.
 
 ### 4. Leakage-Safe Features
 
@@ -78,6 +80,9 @@
 - Hierarchical features by tournament and confederation.
 - Gradient boosting comparison.
 - Probability calibration comparisons.
+- Player-level live form extension after the team-level baseline is evaluated.
+- Player identity registry and roster-aware feature aggregation.
+- Position-specific player feature normalization with small-sample shrinkage.
 
 ### Product
 
@@ -87,6 +92,7 @@
 - Interactive calibration and feature inspection.
 - Live forecast view based on current standings.
 - Prediction audit dashboard with backfilled-row filters.
+- Player availability and squad form view once player data is validated.
 
 ### Engineering
 
@@ -94,3 +100,4 @@
 - Add reproducible pipeline commands.
 - Add CI for tests and linting.
 - Add model cards and experiment tracking.
+- Add player schema validators before any player-data ingestion.

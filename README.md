@@ -29,6 +29,7 @@ Primary evaluation metrics:
 .
 ├── app/
 ├── data/
+│   ├── player/
 │   ├── predictions/
 │   ├── tournament/
 │   ├── raw/
@@ -38,7 +39,9 @@ Primary evaluation metrics:
 ├── src/
 │   ├── data/
 │   ├── features/
+│   │   └── player_features/
 │   ├── models/
+│   ├── player/
 │   └── utils/
 └── tests/
 ```
@@ -92,9 +95,36 @@ python -m streamlit run app/streamlit_app.py
 
 Raw datasets belong in `data/raw/` and must not be committed. Processed datasets belong in `data/processed/` and should be reproducible from scripts whenever possible.
 
+Historical results are cleaned into a canonical `team_a`/`team_b` match schema before feature engineering. The canonical schema is documented in `docs/canonical_match_schema.md`.
+
 Tournament fixtures, current tournament state, and prediction logs have their own proposed schemas in `docs/data_schemas.md`.
 
+Player-level data is a planned modular extension after the team-level baseline. Its proposed strategy and schemas live in `docs/player_data_strategy.md`, `docs/player_form_index.md`, and `docs/player_data_schemas.md`.
+
 External APIs are intentionally out of scope for the first version.
+
+## Data Setup
+
+Historical training data is expected at:
+
+```text
+data/raw/results.csv
+```
+
+Download the international football results CSV manually and place it at that path. The expected columns are:
+
+```text
+date, home_team, away_team, home_score, away_score, tournament, city, country, neutral
+```
+
+Current 2026 World Cup tournament state is maintained separately:
+
+```text
+data/tournament/fixtures_2026.csv
+data/tournament/results_2026.csv
+```
+
+Use manually maintained, FIFA-sourced fixture and result files for current tournament state. Completed 2026 World Cup matches may be used for standings, evaluation, prediction audit, and live simulation state, but they must not be used to train the first baseline model.
 
 ## Forecasting Modes
 
@@ -111,7 +141,7 @@ Predictions for matches already completed before logging begins should be marked
 ## MVP Roadmap
 
 1. Define canonical schema for historical international match results.
-2. Implement cleaning and outcome labeling.
+2. Implement cleaning and outcome labeling into the canonical `team_a`/`team_b` schema.
 3. Build leakage-safe rolling team features.
 4. Train a baseline multinomial logistic regression model with `training_cutoff_date = 2026-06-10`.
 5. Define fixtures, results, and prediction-log schemas for live forecasting.
@@ -127,3 +157,4 @@ Predictions for matches already completed before logging begins should be marked
 - Compare multiple calibrated models.
 - Add model cards and dataset documentation.
 - Add simulation tools for group and knockout stages.
+- Add player-level live form features after the team-level baseline is evaluated.

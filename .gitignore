@@ -24,6 +24,7 @@ env/
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
+!data/raw/README.md
 !data/processed/.gitkeep
 
 # Model artifacts
