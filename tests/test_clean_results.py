@@ -126,6 +126,16 @@ def test_create_match_id_is_deterministic() -> None:
     assert create_match_id(cleaned.iloc[0]) == cleaned.loc[0, "match_id"]
 
 
+def test_clean_results_drops_rows_without_completed_scores() -> None:
+    raw = make_raw_results()
+    raw.loc[1, "home_score"] = None
+
+    cleaned = clean_results(raw)
+
+    assert len(cleaned) == 2
+    assert cleaned["team_a"].tolist() == ["Team A", "Team E"]
+
+
 def test_clean_results_requires_expected_columns() -> None:
     raw = pd.DataFrame({"date": ["2024-01-01"]})
 

@@ -127,12 +127,20 @@ def clean_results(
     cleaned["tournament"] = cleaned["tournament"].astype(str).str.strip()
     cleaned["city"] = cleaned["city"].astype(str).str.strip()
     cleaned["country"] = cleaned["country"].astype(str).str.strip()
-    cleaned["team_a_goals"] = pd.to_numeric(cleaned["home_score"], errors="raise").astype(
-        int
+    cleaned["team_a_goals"] = pd.to_numeric(cleaned["home_score"], errors="raise")
+    cleaned["team_b_goals"] = pd.to_numeric(cleaned["away_score"], errors="raise")
+    cleaned = cleaned.dropna(
+        subset=[
+            "match_date",
+            "team_a",
+            "team_b",
+            "team_a_goals",
+            "team_b_goals",
+            "tournament",
+        ]
     )
-    cleaned["team_b_goals"] = pd.to_numeric(cleaned["away_score"], errors="raise").astype(
-        int
-    )
+    cleaned["team_a_goals"] = cleaned["team_a_goals"].astype(int)
+    cleaned["team_b_goals"] = cleaned["team_b_goals"].astype(int)
     cleaned["neutral"] = cleaned["neutral"].map(_coerce_bool).astype(bool)
     cleaned["is_neutral"] = cleaned["neutral"]
     cleaned["goal_diff_team_a"] = cleaned["team_a_goals"] - cleaned["team_b_goals"]

@@ -75,6 +75,14 @@ Run the Streamlit app:
 python -m streamlit run app/streamlit_app.py
 ```
 
+Run the historical data audit:
+
+```bash
+python scripts/audit_historical_results.py
+```
+
+The audit prints descriptive diagnostics only and does not write processed data.
+
 ## Environment Troubleshooting
 
 If your prompt shows both `(.venv)` and `(base)`, deactivate Conda before rebuilding the virtual environment:

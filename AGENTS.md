@@ -29,6 +29,7 @@ The first model predicts a 3-class result:
 - The v1 historical training source is a manually downloaded international football results CSV at `data/raw/results.csv`.
 - The canonical match schema uses `team_a`/`team_b`; for raw historical results, `team_a` is `home_team` and `team_b` is `away_team`.
 - Canonical result labels are always from `team_a`'s perspective: `team_a_win`, `draw`, `team_b_win`.
+- Canonical cleaned matches represent completed matches with scores; scoreless fixture rows are excluded and handled through tournament-state files.
 - Current 2026 World Cup fixtures and results are maintained separately under `data/tournament/`.
 - The first baseline trains only on historical matches with `date <= 2026-06-10`.
 - Completed 2026 World Cup matches may update standings, tournament state, evaluation, and live simulations, but not first-baseline training.
