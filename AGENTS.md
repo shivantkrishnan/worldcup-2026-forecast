@@ -19,10 +19,17 @@ The first model predicts a 3-class result:
 - Optimize and report probabilistic quality first: log loss, Brier score, and calibration.
 - Treat accuracy as secondary.
 - Prevent target leakage. Rolling or historical features must only use matches played before the prediction date.
-- Keep train/test splits time-aware.
+- Use time-aware train/test splits by default. Random splits are not primary because football team strength changes over time and random validation can leak context across eras.
 - Do not use external APIs until the project explicitly adds that milestone.
 - Do not commit raw datasets.
 - Keep model outputs interpretable enough for a portfolio reviewer to understand.
+
+## Methodology Rules
+
+- Maintain detailed methodology documentation throughout development.
+- Update `docs/methodology.md`, `docs/decision_log.md`, and related docs whenever making methodological, statistical, ML, econometric, data-source, validation, or feature-design decisions.
+- Write methodology notes rigorously enough to become the dashboard or website methodology section.
+- Emphasize statistical validity, leakage prevention, calibration, model uncertainty, economic intuition, and the rationale for each modeling choice.
 
 ## Data Rules
 

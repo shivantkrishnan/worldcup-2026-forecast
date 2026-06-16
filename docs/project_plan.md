@@ -30,6 +30,7 @@
 
 ### 4. Leakage-Safe Features
 
+- Use time-aware train/test splits by default before modeling.
 - Sort matches by date.
 - Build rolling team features from prior matches only.
 - Include simple features first:
@@ -42,6 +43,7 @@
 ### 5. Baseline Model
 
 - Use a time-aware train/test split.
+- Default holdout: train before `2022-01-01`, test on `2022-01-01` through the `2026-06-10` baseline cutoff.
 - Train a multinomial logistic regression baseline.
 - Use `2026-06-10` as the default training cutoff date.
 - Do not train the first baseline model on completed 2026 World Cup matches.
@@ -101,3 +103,4 @@
 - Add CI for tests and linting.
 - Add model cards and experiment tracking.
 - Add player schema validators before any player-data ingestion.
+- Maintain methodology and decision docs continuously so they can become the dashboard methodology page.

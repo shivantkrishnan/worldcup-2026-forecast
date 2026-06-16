@@ -83,6 +83,16 @@ python scripts/audit_historical_results.py
 
 The audit prints descriptive diagnostics only and does not write processed data.
 
+Methodology and project decisions are tracked continuously in:
+
+```text
+docs/methodology.md
+docs/decision_log.md
+docs/methodology_checklist.md
+```
+
+These notes are intended to become the methodology section of the dashboard or website.
+
 ## Environment Troubleshooting
 
 If your prompt shows both `(.venv)` and `(base)`, deactivate Conda before rebuilding the virtual environment:
@@ -146,17 +156,24 @@ Completed 2026 World Cup matches are allowed for standings, tournament state, ev
 
 Predictions for matches already completed before logging begins should be marked as backfilled. Predictions made going forward should be timestamped before kickoff.
 
+## Validation Strategy
+
+Model evaluation should use time-aware splits by default. The first holdout design trains on matches before `2022-01-01` and tests on baseline-eligible matches from `2022-01-01` through `2026-06-10`.
+
+Random splits are not the primary evaluation design because they can leak context across football eras.
+
 ## MVP Roadmap
 
 1. Define canonical schema for historical international match results.
 2. Implement cleaning and outcome labeling into the canonical `team_a`/`team_b` schema.
-3. Build leakage-safe rolling team features.
-4. Train a baseline multinomial logistic regression model with `training_cutoff_date = 2026-06-10`.
-5. Define fixtures, results, and prediction-log schemas for live forecasting.
-6. Evaluate log loss, Brier score, and calibration.
-7. Add prediction audit output that distinguishes logged pre-match predictions from backfilled predictions.
-8. Save model artifacts and prediction metadata.
-9. Build a simple Streamlit match predictor.
+3. Add canonical data quality checks, duplicate resolution, and time-aware split utilities.
+4. Build leakage-safe rolling team features.
+5. Train a baseline multinomial logistic regression model with `training_cutoff_date = 2026-06-10`.
+6. Define fixtures, results, and prediction-log schemas for live forecasting.
+7. Evaluate log loss, Brier score, and calibration.
+8. Add prediction audit output that distinguishes logged pre-match predictions from backfilled predictions.
+9. Save model artifacts and prediction metadata.
+10. Build a simple Streamlit match predictor.
 
 ## Extension Ideas
 
