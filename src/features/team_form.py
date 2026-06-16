@@ -176,8 +176,9 @@ def add_team_rolling_features(
         kind="mergesort",
     ).reset_index(drop=True)
 
-    def add_group_features(group: pd.DataFrame) -> pd.DataFrame:
+    def add_group_features(team: object, group: pd.DataFrame) -> pd.DataFrame:
         group = group.sort_values(["match_date", "match_id"], kind="mergesort").copy()
+        group["team"] = team
         group["matches_played_before"] = range(len(group))
         group["days_since_last_match"] = group["match_date"].diff().dt.days
 
@@ -199,12 +200,17 @@ def add_team_rolling_features(
         group["expanding_win_rate"] = shifted["win"].expanding(min_periods=1).mean()
         return group
 
-    return (
-        panel.groupby("team", group_keys=False)
-        .apply(add_group_features)
-        .sort_values(["team", "match_date", "match_id"], kind="mergesort")
-        .reset_index(drop=True)
-    )
+    groups = [
+        add_group_features(team, group)
+        for team, group in panel.groupby("team", sort=False, dropna=False)
+    ]
+    if not groups:
+        return panel
+
+    return pd.concat(groups, ignore_index=True).sort_values(
+        ["team", "match_date", "match_id"],
+        kind="mergesort",
+    ).reset_index(drop=True)
 
 
 def build_match_level_features(

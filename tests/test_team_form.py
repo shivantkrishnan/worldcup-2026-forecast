@@ -7,6 +7,25 @@ from src.features.team_form import (
     add_team_rolling_features,
 )
 
+CORE_TEAM_PANEL_COLUMNS = [
+    "match_id",
+    "match_date",
+    "team",
+    "opponent",
+    "goals_for",
+    "goals_against",
+    "goal_diff",
+    "points",
+    "win",
+    "draw",
+    "loss",
+    "is_team_a",
+    "is_home",
+    "is_neutral",
+    "tournament",
+    "result_from_team_perspective",
+]
+
 
 def make_canonical_matches() -> pd.DataFrame:
     raw = pd.DataFrame(
@@ -90,6 +109,14 @@ def test_rolling_features_do_not_include_current_match() -> None:
     assert sixth_match["rolling_goals_for_avg_5"] == 1.6
     assert sixth_match["rolling_goals_against_avg_5"] == 0.6
     assert sixth_match["rolling_win_rate_5"] == 0.6
+
+
+def test_add_team_rolling_features_preserves_core_panel_columns() -> None:
+    canonical = make_canonical_matches()
+    panel = add_team_rolling_features(build_team_match_panel(canonical), windows=(5,))
+
+    for column in CORE_TEAM_PANEL_COLUMNS:
+        assert column in panel.columns
 
 
 def test_first_match_has_missing_prior_history_features() -> None:
