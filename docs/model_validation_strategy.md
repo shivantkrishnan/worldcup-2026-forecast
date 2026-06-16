@@ -23,9 +23,20 @@ This gives a recent out-of-sample window while preserving the first-baseline tra
 
 ## Rolling-Origin Backtesting
 
-Later validation should include rolling-origin backtests. Each split should train on all data available up to a date and test on the next future window.
+Rolling-origin backtesting is the next validation layer after the first 2022-2026 holdout. Each split trains on all data available up to a historical cutoff date and tests on the next future window.
 
-This helps evaluate stability across time instead of relying on one holdout period.
+The default baseline backtest uses:
+
+- Initial train end date: `2014-12-31`.
+- Test window: 24 months.
+- Step size: 24 months.
+- Final test end date: `2026-06-10`.
+
+This creates repeated expanding-window forecasts while preserving the first-baseline cutoff.
+
+For every split, preprocessing, imputation, scaling, logistic regression, and calibration are refit using only that split's training rows. The future test window is reserved for evaluation only.
+
+Rolling-origin backtests help evaluate stability across time instead of relying on one holdout period. Mean metrics summarize average performance, standard deviations show volatility, and per-window wins/losses reveal whether one model consistently beats another.
 
 ## Tournament Backtesting
 

@@ -236,3 +236,23 @@ The first logistic regression baseline improved Brier score and accuracy but was
 ### Implications for Modeling/Product
 
 Baseline reporting now includes expected calibration error, confidence-bin calibration summaries, classwise calibration tables, and calibrated logistic metrics. Calibration is fitted only on training data through internal cross-validation, so the test set remains a genuine holdout.
+
+## 2026-06-16
+
+### Decision
+
+Add rolling-origin backtesting as the next validation layer after the first 2022-2026 holdout.
+
+### Rationale
+
+The calibrated logistic model improved log loss on the single holdout but did not improve ECE, Brier score, or accuracy. Multiple future test windows are needed to see whether that log-loss improvement is stable or concentrated in one period.
+
+### Alternatives Considered
+
+- Rely on the single 2022-2026 holdout.
+- Move directly to stronger model families.
+- Tune calibration or hyperparameters before checking temporal stability.
+
+### Implications for Modeling/Product
+
+Baseline comparisons now include expanding-window rolling-origin summaries. Each split refits preprocessing, imputation, scaling, logistic regression, and calibration using training rows only. Aggregate results report mean/std metrics and per-window model wins.

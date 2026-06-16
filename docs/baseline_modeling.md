@@ -32,6 +32,12 @@ The default split trains before `2022-01-01` and tests on matches from `2022-01-
 
 Random splits are not the primary evaluation design because they can mix football eras and leak context across time.
 
+## Rolling-Origin Backtesting
+
+The baseline models can also be compared across expanding rolling-origin splits. Each split trains on historical rows up to a cutoff and tests on the next future window. The full preprocessing and modeling pipeline is refit inside each split.
+
+This checks whether class-prior, logistic regression, and calibrated logistic regression performance is stable across time. The backtest report includes mean/std metrics and counts how often each model wins on log loss or ECE.
+
 ## Missing Rolling-History Values
 
 Missing values are expected in rolling team-form features, especially for teams with limited prior match history and for full-window rolling statistics.
@@ -83,6 +89,7 @@ Current limitations:
 - Missing values are handled with a simple median-imputation strategy.
 - No hyperparameter tuning.
 - Calibration comparison is limited to the first sigmoid-calibrated logistic variant.
+- Rolling-origin backtesting is implemented, but deeper tournament-specific backtests are still future work.
 - No artifact writing by default.
 
 ## Next Candidates

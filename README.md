@@ -91,6 +91,14 @@ python scripts/train_baseline_model.py
 
 The training script prints class-prior, logistic regression, and calibrated logistic regression metrics plus calibration diagnostics. It does not write model artifacts by default.
 
+Run rolling-origin baseline backtests:
+
+```bash
+python scripts/backtest_baseline_models.py
+```
+
+The backtest script prints split-by-split and aggregate metrics only; it does not write model artifacts by default.
+
 Methodology and project decisions are tracked continuously in:
 
 ```text

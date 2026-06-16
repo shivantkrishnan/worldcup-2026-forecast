@@ -74,6 +74,8 @@ Validation should mimic real forecasting. The default approach is time-aware val
 
 This reduces the risk of accidentally evaluating on a setting where information from a later football era influences training for an earlier one.
 
+After the first 2022-2026 holdout, baseline models are also evaluated with rolling-origin backtests. Each split trains on past data and tests on a future window, then the origin moves forward. This checks whether model improvements are stable across time rather than tied to one validation period.
+
 ## Feature-Engineering Principles
 
 Features must be leakage-safe. Rolling features must use only matches before the prediction date. Feature tables should preserve explicit date or timestamp cutoffs.
@@ -99,6 +101,8 @@ Accuracy is secondary because the dashboard forecasts probabilities, not just la
 The first baseline compares a class-prior probability model against a multinomial logistic regression model. Missing rolling-history values are handled inside the scikit-learn pipeline with train-fitted median imputation plus missingness indicators, followed by scaling and logistic regression.
 
 The baseline evaluation also compares an internally calibrated logistic regression variant. Calibration is fitted only on training data through internal cross-validation, never on the test set.
+
+Rolling-origin backtests refit preprocessing, imputation, scaling, logistic regression, and calibration independently inside each training window.
 
 ## Calibration and Uncertainty
 
@@ -143,7 +147,8 @@ Current limitations:
 - Only the first leakage-safe team-form feature layer has been implemented.
 - Only the first simple baseline model has been implemented.
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
-- Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available, but broader calibration backtesting is not yet implemented.
+- Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available.
+- Rolling-origin backtesting is available for baseline model stability checks.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.
