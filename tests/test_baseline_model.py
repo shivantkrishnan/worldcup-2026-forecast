@@ -3,6 +3,7 @@ import pandas as pd
 
 from src.models.baseline import (
     DEFAULT_CLASS_LABELS,
+    build_calibrated_logistic_regression_pipeline,
     build_class_prior_baseline,
     build_logistic_regression_pipeline,
     predict_class_prior,
@@ -13,7 +14,7 @@ from src.models.baseline import (
 def make_modeling_df() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "match_id": [f"m{index}" for index in range(9)],
+            "match_id": [f"m{index}" for index in range(12)],
             "match_date": [
                 "2021-01-01",
                 "2021-02-01",
@@ -21,14 +22,17 @@ def make_modeling_df() -> pd.DataFrame:
                 "2021-04-01",
                 "2021-05-01",
                 "2021-06-01",
+                "2021-07-01",
+                "2021-08-01",
+                "2021-09-01",
                 "2022-01-01",
                 "2022-02-01",
                 "2022-03-01",
             ],
-            "team_a": ["A"] * 9,
-            "team_b": ["B"] * 9,
-            "tournament": ["Friendly"] * 9,
-            "is_neutral": [False] * 9,
+            "team_a": ["A"] * 12,
+            "team_b": ["B"] * 12,
+            "tournament": ["Friendly"] * 12,
+            "is_neutral": [False] * 12,
             "result": [
                 "team_a_win",
                 "draw",
@@ -39,10 +43,52 @@ def make_modeling_df() -> pd.DataFrame:
                 "team_a_win",
                 "draw",
                 "team_b_win",
+                "team_a_win",
+                "draw",
+                "team_b_win",
             ],
-            "team_a_feature": [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 1_000.0, 1_000.0, 1_000.0],
-            "team_b_feature": [10.0, 8.0, 6.0, 4.0, 2.0, 0.0, -1_000.0, -1_000.0, -1_000.0],
-            "feature_diff": [-10.0, -6.0, -2.0, 2.0, 6.0, 10.0, 2_000.0, 2_000.0, 2_000.0],
+            "team_a_feature": [
+                0.0,
+                2.0,
+                4.0,
+                6.0,
+                8.0,
+                10.0,
+                12.0,
+                14.0,
+                16.0,
+                1_000.0,
+                1_000.0,
+                1_000.0,
+            ],
+            "team_b_feature": [
+                16.0,
+                14.0,
+                12.0,
+                10.0,
+                8.0,
+                6.0,
+                4.0,
+                2.0,
+                0.0,
+                -1_000.0,
+                -1_000.0,
+                -1_000.0,
+            ],
+            "feature_diff": [
+                -16.0,
+                -12.0,
+                -8.0,
+                -4.0,
+                0.0,
+                4.0,
+                8.0,
+                12.0,
+                16.0,
+                2_000.0,
+                2_000.0,
+                2_000.0,
+            ],
         }
     )
 
@@ -84,21 +130,52 @@ def test_logistic_pipeline_can_fit_and_predict_small_dataset() -> None:
     assert np.allclose(predictions.sum(axis=1), 1.0)
 
 
+def test_calibrated_model_returns_probabilities_with_expected_shape() -> None:
+    model = build_calibrated_logistic_regression_pipeline(cv=3)
+    x_train = pd.DataFrame(
+        {
+            "feature_one": list(range(9)),
+            "feature_two": list(reversed(range(9))),
+        }
+    )
+    y_train = pd.Series(
+        [
+            "team_a_win",
+            "draw",
+            "team_b_win",
+            "team_a_win",
+            "draw",
+            "team_b_win",
+            "team_a_win",
+            "draw",
+            "team_b_win",
+        ]
+    )
+
+    model.fit(x_train, y_train)
+    predictions = model.predict_proba(x_train)
+
+    assert predictions.shape == (9, 3)
+    assert np.allclose(predictions.sum(axis=1), 1.0)
+
+
 def test_train_baseline_model_returns_class_prior_and_logistic_metrics() -> None:
     result = train_baseline_model(make_modeling_df(), test_start_date="2022-01-01")
 
     assert "class_prior_metrics" in result
     assert "logistic_regression_metrics" in result
+    assert "calibrated_logistic_metrics" in result
     assert result["class_prior_metrics"]["prediction_count"] == 3
     assert result["logistic_regression_metrics"]["prediction_count"] == 3
+    assert result["calibrated_logistic_metrics"]["prediction_count"] == 3
 
 
 def test_train_test_split_is_time_aware() -> None:
     result = train_baseline_model(make_modeling_df(), test_start_date="2022-01-01")
 
-    assert result["train_row_count"] == 6
+    assert result["train_row_count"] == 9
     assert result["test_row_count"] == 3
-    assert result["train_date_range"] == ("2021-01-01", "2021-06-01")
+    assert result["train_date_range"] == ("2021-01-01", "2021-09-01")
     assert result["test_date_range"] == ("2022-01-01", "2022-03-01")
 
 
@@ -119,4 +196,28 @@ def test_imputer_is_fitted_on_train_rows_only() -> None:
     result = train_baseline_model(df, test_start_date="2022-01-01")
     imputer = result["fitted_pipeline"].named_steps["imputer"]
 
-    assert imputer.statistics_[0] == 6.0
+    assert imputer.statistics_[0] == 9.0
+
+
+def test_calibrated_training_does_not_use_test_rows_for_preprocessing() -> None:
+    df = make_modeling_df()
+    result = train_baseline_model(df, test_start_date="2022-01-01")
+    calibrated = result["fitted_calibrated_pipeline"]
+
+    imputer_statistics = [
+        classifier.estimator.named_steps["imputer"].statistics_[0]
+        for classifier in calibrated.calibrated_classifiers_
+    ]
+
+    assert all(statistic < 1_000.0 for statistic in imputer_statistics)
+
+
+def test_train_baseline_model_works_without_calibrated_model() -> None:
+    result = train_baseline_model(
+        make_modeling_df(),
+        test_start_date="2022-01-01",
+        include_calibrated=False,
+    )
+
+    assert result["calibrated_logistic_metrics"] is None
+    assert result["fitted_calibrated_pipeline"] is None

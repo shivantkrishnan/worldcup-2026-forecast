@@ -41,7 +41,9 @@ Primary metrics:
 
 Accuracy is secondary because the project forecasts probabilities.
 
-The first baseline reports both a class-prior model and multinomial logistic regression on the same time-aware holdout, so improvement over a naive probabilistic baseline is visible.
+The first baseline reports a class-prior model, uncalibrated multinomial logistic regression, and a sigmoid-calibrated logistic regression variant on the same time-aware holdout. Calibration diagnostics include expected calibration error, confidence-bin summaries, and classwise calibration tables.
+
+Calibration must be fitted inside the training split only. The holdout test period is reserved for final metric reporting and must not be used to tune or calibrate probabilities.
 
 ## Economic and Statistical Intuition
 

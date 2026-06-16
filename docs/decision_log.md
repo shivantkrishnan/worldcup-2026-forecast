@@ -216,3 +216,23 @@ The first model should be simple, interpretable, and probabilistic. Logistic reg
 ### Implications for Modeling/Product
 
 Missing rolling-history values are handled inside the model pipeline using median imputation plus missingness indicators fit only on training rows. Evaluation uses the time-aware holdout and prioritizes log loss, multiclass Brier score, and calibration diagnostics.
+
+## 2026-06-16
+
+### Decision
+
+Add calibration diagnostics and compare a sigmoid-calibrated logistic regression variant against the uncalibrated baseline.
+
+### Rationale
+
+The first logistic regression baseline improved Brier score and accuracy but was slightly worse than the class-prior baseline on log loss. That pattern suggests useful separation signal with possible overconfidence or poor calibration.
+
+### Alternatives Considered
+
+- Keep only the uncalibrated logistic baseline.
+- Tune model hyperparameters before diagnosing calibration.
+- Use isotonic calibration as the first calibration method.
+
+### Implications for Modeling/Product
+
+Baseline reporting now includes expected calibration error, confidence-bin calibration summaries, classwise calibration tables, and calibrated logistic metrics. Calibration is fitted only on training data through internal cross-validation, so the test set remains a genuine holdout.

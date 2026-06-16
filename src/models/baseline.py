@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -17,8 +18,8 @@ from src.data.clean_results import (
 from src.data.splits import chronological_train_test_split, summarize_split
 from src.features.feature_audit import get_feature_columns
 from src.models.metrics import (
-    calibration_by_confidence_bin,
     evaluate_probabilistic_predictions,
+    summarize_calibration,
 )
 
 DEFAULT_CLASS_LABELS = [
@@ -37,7 +38,7 @@ def _target_distribution(df: pd.DataFrame, target_col: str = "result") -> dict[s
 
 
 def _predict_proba_in_class_order(
-    model: Pipeline,
+    model: object,
     features: pd.DataFrame,
     class_labels: list[str],
 ) -> np.ndarray:
@@ -80,9 +81,25 @@ def build_logistic_regression_pipeline() -> Pipeline:
     )
 
 
+def build_calibrated_logistic_regression_pipeline(
+    method: str = "sigmoid",
+    cv: int = 3,
+) -> CalibratedClassifierCV:
+    """Build a calibrated logistic baseline with train-only internal CV."""
+    if method not in {"sigmoid", "isotonic"}:
+        raise ValueError("method must be 'sigmoid' or 'isotonic'.")
+
+    return CalibratedClassifierCV(
+        estimator=build_logistic_regression_pipeline(),
+        method=method,
+        cv=cv,
+    )
+
+
 def train_baseline_model(
     features_df: pd.DataFrame,
     test_start_date: str = "2022-01-01",
+    include_calibrated: bool = True,
 ) -> dict[str, object]:
     """Train and evaluate class-prior and logistic-regression baselines."""
     feature_columns = get_feature_columns(features_df)
@@ -106,6 +123,11 @@ def train_baseline_model(
         class_prior_proba,
         class_labels,
     )
+    class_prior_calibration_summary = summarize_calibration(
+        y_test,
+        class_prior_proba,
+        class_labels,
+    )
 
     pipeline = build_logistic_regression_pipeline()
     pipeline.fit(x_train, y_train)
@@ -115,11 +137,40 @@ def train_baseline_model(
         logistic_proba,
         class_labels,
     )
-    calibration_table_logistic = calibration_by_confidence_bin(
+    logistic_regression_calibration_summary = summarize_calibration(
         y_test,
         logistic_proba,
         class_labels,
     )
+    calibration_table_logistic = logistic_regression_calibration_summary[
+        "confidence_calibration_table"
+    ]
+
+    calibrated_pipeline = None
+    calibrated_logistic_metrics = None
+    calibrated_logistic_calibration_summary = None
+    calibration_table_calibrated_logistic = None
+    if include_calibrated:
+        calibrated_pipeline = build_calibrated_logistic_regression_pipeline()
+        calibrated_pipeline.fit(x_train, y_train)
+        calibrated_proba = _predict_proba_in_class_order(
+            calibrated_pipeline,
+            x_test,
+            class_labels,
+        )
+        calibrated_logistic_metrics = evaluate_probabilistic_predictions(
+            y_test,
+            calibrated_proba,
+            class_labels,
+        )
+        calibrated_logistic_calibration_summary = summarize_calibration(
+            y_test,
+            calibrated_proba,
+            class_labels,
+        )
+        calibration_table_calibrated_logistic = calibrated_logistic_calibration_summary[
+            "confidence_calibration_table"
+        ]
 
     return {
         "feature_columns": feature_columns,
@@ -137,8 +188,18 @@ def train_baseline_model(
         "target_distribution_test": _target_distribution(test_df),
         "class_prior": class_prior,
         "class_prior_metrics": class_prior_metrics,
+        "class_prior_calibration_summary": class_prior_calibration_summary,
         "logistic_regression_metrics": logistic_regression_metrics,
+        "logistic_regression_calibration_summary": (
+            logistic_regression_calibration_summary
+        ),
         "calibration_table_logistic": calibration_table_logistic,
+        "calibrated_logistic_metrics": calibrated_logistic_metrics,
+        "calibrated_logistic_calibration_summary": (
+            calibrated_logistic_calibration_summary
+        ),
+        "calibration_table_calibrated_logistic": calibration_table_calibrated_logistic,
         "fitted_pipeline": pipeline,
+        "fitted_calibrated_pipeline": calibrated_pipeline,
         "class_labels": class_labels,
     }

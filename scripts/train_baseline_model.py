@@ -32,6 +32,10 @@ def _print_metrics(title: str, metrics: dict[str, object]) -> None:
     print(f"  prediction_count: {metrics['prediction_count']:,}")
 
 
+def _print_ece(title: str, summary: dict[str, object]) -> None:
+    print(f"{title}: {summary['expected_calibration_error']:.6f}")
+
+
 def main() -> int:
     """Run the first baseline training milestone."""
     try:
@@ -61,9 +65,38 @@ def main() -> int:
         "\nlogistic-regression baseline metrics:",
         result["logistic_regression_metrics"],
     )
+    _print_metrics(
+        "\ncalibrated logistic-regression baseline metrics:",
+        result["calibrated_logistic_metrics"],
+    )
+
+    print("\ncalibration error:")
+    _print_ece("  logistic ECE", result["logistic_regression_calibration_summary"])
+    _print_ece(
+        "  calibrated logistic ECE",
+        result["calibrated_logistic_calibration_summary"],
+    )
 
     print("\nlogistic calibration bins:")
     print(result["calibration_table_logistic"].head(10).to_string(index=False))
+
+    print("\ncalibrated logistic calibration bins:")
+    print(
+        result["calibration_table_calibrated_logistic"].head(10).to_string(index=False)
+    )
+
+    logistic_log_loss = result["logistic_regression_metrics"]["log_loss"]
+    calibrated_log_loss = result["calibrated_logistic_metrics"]["log_loss"]
+    logistic_ece = result["logistic_regression_calibration_summary"][
+        "expected_calibration_error"
+    ]
+    calibrated_ece = result["calibrated_logistic_calibration_summary"][
+        "expected_calibration_error"
+    ]
+
+    print("\ncalibrated comparison:")
+    print(f"  improves log_loss: {calibrated_log_loss < logistic_log_loss}")
+    print(f"  improves ECE: {calibrated_ece < logistic_ece}")
 
     print("\nNo model artifacts or processed feature files were written.")
     return 0

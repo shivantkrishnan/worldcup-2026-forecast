@@ -60,6 +60,14 @@ Multinomial logistic regression is a good first baseline because it is:
 - Compatible with imputation and standardized numeric features.
 - A useful benchmark before tree-based or rating-based models.
 
+## Calibrated Logistic Regression Variant
+
+The baseline comparison now includes a calibrated logistic regression variant. It uses the same train-only preprocessing pipeline and wraps the logistic model with `CalibratedClassifierCV`.
+
+The default calibration method is sigmoid because it is sample-efficient and less likely to overfit than isotonic calibration on smaller folds. Calibration is fitted only within the training split through internal cross-validation. The test set is used only for final evaluation.
+
+Calibration diagnostics include expected calibration error and confidence-bin summaries. This helps explain cases where logistic regression improves accuracy or Brier score but worsens log loss due to overconfident wrong predictions.
+
 ## Class-Prior Baseline
 
 The class-prior baseline predicts the training-set class distribution for every test match. It is intentionally simple and provides a sanity check.
@@ -74,7 +82,7 @@ Current limitations:
 - No Elo, opponent-strength, player, market, or tournament-stage features yet.
 - Missing values are handled with a simple median-imputation strategy.
 - No hyperparameter tuning.
-- No calibration post-processing.
+- Calibration comparison is limited to the first sigmoid-calibrated logistic variant.
 - No artifact writing by default.
 
 ## Next Candidates
@@ -87,4 +95,4 @@ Possible next model or feature candidates:
 - Elo or rating features.
 - Player-form features.
 - Market or odds-implied features.
-- Calibration methods such as isotonic or Platt-style calibration.
+- Additional calibration methods such as isotonic calibration.

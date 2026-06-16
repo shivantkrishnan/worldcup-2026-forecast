@@ -98,9 +98,13 @@ Accuracy is secondary because the dashboard forecasts probabilities, not just la
 
 The first baseline compares a class-prior probability model against a multinomial logistic regression model. Missing rolling-history values are handled inside the scikit-learn pipeline with train-fitted median imputation plus missingness indicators, followed by scaling and logistic regression.
 
+The baseline evaluation also compares an internally calibrated logistic regression variant. Calibration is fitted only on training data through internal cross-validation, never on the test set.
+
 ## Calibration and Uncertainty
 
 Forecasts should be evaluated as probabilities. Calibration matters because users need to know whether a predicted 60 percent chance behaves like a real 60 percent chance over comparable matches.
+
+Calibration diagnostics include expected calibration error, confidence-bin calibration, and classwise calibration tables. These diagnostics are reported alongside log loss and Brier score because accuracy can improve even when probability quality worsens.
 
 The project should surface uncertainty and avoid overclaiming precision, especially for live forecasts, player availability, and tournament simulations.
 
@@ -139,6 +143,7 @@ Current limitations:
 - Only the first leakage-safe team-form feature layer has been implemented.
 - Only the first simple baseline model has been implemented.
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
+- Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available, but broader calibration backtesting is not yet implemented.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.
