@@ -76,7 +76,9 @@ This reduces the risk of accidentally evaluating on a setting where information 
 
 ## Feature-Engineering Principles
 
-Future features must be leakage-safe. Rolling features must use only matches before the prediction date. Feature tables should preserve explicit date or timestamp cutoffs.
+Features must be leakage-safe. Rolling features must use only matches before the prediction date. Feature tables should preserve explicit date or timestamp cutoffs.
+
+The first team-form feature layer transforms canonical matches into a long team-match panel, shifts team outcomes by one match, and then computes rolling or expanding features from prior matches only.
 
 Initial features should be simple and interpretable before adding complexity. Each new feature group should be justified by football intuition and tested by whether it improves probabilistic forecast quality.
 
@@ -128,7 +130,7 @@ The project should be clear about whether odds are used for benchmarking, calibr
 
 Current limitations:
 
-- No feature engineering has been implemented yet.
+- Only the first leakage-safe team-form feature layer has been implemented.
 - No model has been trained yet.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
@@ -136,7 +138,7 @@ Current limitations:
 
 Future improvements:
 
-- Leakage-safe rolling team features.
+- Elo-style and opponent-adjusted team strength features.
 - Backtesting over prior World Cups and major tournaments.
 - Calibrated model comparisons.
 - Player-level live form extension.

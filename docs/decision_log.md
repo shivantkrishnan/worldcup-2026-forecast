@@ -155,3 +155,23 @@ Player data introduces identity matching, availability, role, and small-sample r
 ### Implications for Modeling/Product
 
 Player features must prove incremental value on log loss, Brier score, and calibration before becoming core model inputs.
+
+## 2026-06-16
+
+### Decision
+
+Compute team-form features from a long team-match panel using shift/lag logic before rolling or expanding calculations.
+
+### Rationale
+
+Canonical match rows contain both teams, but rolling form is naturally team-specific. A long panel gives each team its own historical sequence. Shifting outcomes before rolling ensures the current match result cannot leak into features for that match.
+
+### Alternatives Considered
+
+- Compute features directly from one-row-per-match data.
+- Use current-row outcomes in rolling calculations and rely on later filtering.
+- Start with complex rating or player-based features.
+
+### Implications for Modeling/Product
+
+The first feature set is interpretable and leakage-safe. Match-level features compare `team_a` and `team_b` by subtracting team-level feature values from `team_a`'s perspective.

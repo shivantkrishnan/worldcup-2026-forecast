@@ -1,15 +1,17 @@
 """Feature-building utilities.
 
 Rolling features must only use matches before the prediction date. This module
-starts as a placeholder so that future feature work has a clear home.
+provides the main feature-building entry point for future modeling.
 """
 
 import pandas as pd
 
+from src.features.team_form import build_match_level_features
 
-def build_match_features(results: pd.DataFrame) -> pd.DataFrame:
-    """Return a feature dataframe for model training.
 
-    The MVP implementation will add leakage-safe rolling team statistics here.
-    """
-    return results.copy()
+def build_match_features(
+    results: pd.DataFrame,
+    windows: tuple[int, ...] = (5, 10),
+) -> pd.DataFrame:
+    """Return leakage-safe match-level team-form features."""
+    return build_match_level_features(results, windows=windows)

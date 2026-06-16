@@ -4,6 +4,7 @@ Use this checklist after future changes.
 
 - [ ] Did this change affect data provenance?
 - [ ] Did this change affect leakage risk?
+- [ ] If features were changed, do they use only prior information via shift/lag or explicit cutoff logic?
 - [ ] Did this change affect the training cutoff?
 - [ ] Did this change affect validation/evaluation?
 - [ ] Did this change affect model interpretation?
