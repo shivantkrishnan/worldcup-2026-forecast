@@ -428,3 +428,17 @@ Tournament forecasting and the Streamlit predictor need fixture-level probabilit
 ### Implications for Modeling/Product
 
 Fixture features use only completed matches strictly before the fixture date, with same-date completed matches excluded under date-only timestamp logic. Future 2026 World Cup fixtures default to neutral if no neutral flag is supplied, so the historical Elo home adjustment is not applied as a generic World Cup host effect. Favorite and confidence labels are display aids layered on top of probabilities.
+
+## 2026-06-18
+
+### Decision
+
+Add the first group-stage Monte Carlo simulation layer.
+
+### Rationale
+
+Fixture-level probabilities are useful on their own, but tournament forecasting requires propagating match uncertainty through group tables. A lightweight simulator can estimate group winner, top-two, and advancement probabilities before the project implements full knockout brackets.
+
+### Implications for Modeling/Product
+
+The simulator consumes full 3-class fixture probabilities, samples W/D/L outcomes, and runs in memory without writing simulation files. Because the current model does not predict scores, tie-breakers are simplified to points, wins, and a seeded random placeholder. Official goal-difference and FIFA tie-break rules remain future work.

@@ -19,6 +19,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Elo K-factor and home/neutral-site variant evaluation.
 - Tournament-specific baseline backtesting script and methodology.
 - Scheduled-fixture forecast output layer.
+- First group-stage Monte Carlo simulation layer.
 
 ## Current Selected Baseline
 
@@ -47,7 +48,7 @@ After each variant:
 
 - Implement manually maintained 2026 fixtures/results ingestion.
 - Generate match-level predictions for known fixtures.
-- Build Monte Carlo group-stage and knockout simulation.
+- Extend Monte Carlo simulation from group-stage only to knockout brackets.
 - Output group qualification, knockout advancement, finalist, and champion probabilities.
 - Distinguish pre-tournament, live, and backfilled forecasts.
 
@@ -66,6 +67,7 @@ After each variant:
 - Live in-match prediction model using score, minute, red cards, shots, xG, possession, pass completion, corners, and other live stats.
 - Bootstrapped uncertainty intervals.
 - Tournament-specific backtesting over prior World Cups or major tournaments.
+- Scoreline or goal-difference simulation for official tie-break rules.
 - Richer event-data features if reliable data becomes available.
 
 ## Not Yet in Scope

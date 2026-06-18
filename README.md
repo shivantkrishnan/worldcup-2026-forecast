@@ -107,6 +107,14 @@ python scripts/predict_sample_fixtures.py
 
 The prediction script trains the selected baseline in memory, builds leakage-safe fixture feature rows, and prints full 3-class probabilities plus a favorite display. It does not write model artifacts or processed feature files by default.
 
+Run a group-stage Monte Carlo simulation:
+
+```bash
+python scripts/simulate_group_stage.py
+```
+
+The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It prints advancement probabilities and does not write simulation files by default.
+
 Methodology and project decisions are tracked continuously in:
 
 ```text
@@ -122,6 +130,7 @@ These notes are intended to become the methodology section of the dashboard or w
 The current baseline selection is summarized in `docs/model_selection_report.md`, and the baseline model card is in `docs/model_card_baseline.md`.
 
 The scheduled-fixture forecast output design is documented in `docs/forecast_output_design.md`.
+The group-stage simulation design is documented in `docs/tournament_simulation.md`.
 
 ## Project Status / Roadmap
 

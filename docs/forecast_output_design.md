@@ -57,3 +57,5 @@ This layer prepares the project for Monte Carlo tournament simulation by produci
 - a simple display confidence label.
 
 The simulator can later consume these probabilities directly for group-stage and knockout-path draws without retraining the model or rebuilding feature logic.
+
+The first simulator now consumes these probability rows for group-stage simulations. It samples the full 3-class distribution, not just the favorite, which lets draws affect group standings naturally.
