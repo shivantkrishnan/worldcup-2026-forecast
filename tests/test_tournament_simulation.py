@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from scripts.simulate_group_stage import main as simulate_group_stage_main
+from scripts.simulate_group_stage import prepare_simulation_fixture_table
 from src.simulation.tournament import (
     VALID_OUTCOMES,
     rank_group_table,
@@ -29,6 +30,65 @@ def one_match_fixture() -> pd.DataFrame:
                 "p_team_a_win": 1.0,
                 "p_draw": 0.0,
                 "p_team_b_win": 0.0,
+            }
+        ]
+    )
+
+
+def two_match_fixture_reference() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "match_id": "m1",
+                "match_date": "2026-06-12",
+                "group": "A",
+                "stage": "group",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+            },
+            {
+                "match_id": "m2",
+                "match_date": "2026-06-13",
+                "group": "A",
+                "stage": "group",
+                "team_a": "Gamma",
+                "team_b": "Delta",
+            },
+        ]
+    )
+
+
+def one_completed_result() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "match_id": "m1",
+                "match_date": "2026-06-12",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+                "team_a_goals": 0,
+                "team_b_goals": 1,
+                "result": "team_b_win",
+                "status": "completed",
+            }
+        ]
+    )
+
+
+def one_remaining_prediction() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "match_id": "m2",
+                "group": "A",
+                "team_a": "Gamma",
+                "team_b": "Delta",
+                "p_team_a_win": 0.4,
+                "p_draw": 0.3,
+                "p_team_b_win": 0.3,
+                "forecast_mode": "live",
+                "feature_cutoff_date": "2026-06-12",
+                "is_backfilled": False,
             }
         ]
     )
@@ -134,6 +194,31 @@ def test_completed_match_is_fixed_and_not_sampled() -> None:
     assert beta["wins"] == 1
     assert beta["goals_for"] == 2
     assert beta["goals_against"] == 1
+
+
+def test_prepare_simulation_table_accepts_remaining_only_live_predictions() -> None:
+    prepared = prepare_simulation_fixture_table(
+        two_match_fixture_reference(),
+        one_remaining_prediction(),
+        one_completed_result(),
+    )
+
+    completed = prepared.loc[prepared["match_id"].eq("m1")].iloc[0]
+    remaining = prepared.loc[prepared["match_id"].eq("m2")].iloc[0]
+    assert bool(completed["is_completed"]) is True
+    assert completed["actual_result"] == "team_b_win"
+    assert completed["p_team_b_win"] == 1.0
+    assert bool(remaining["is_completed"]) is False
+    assert remaining["forecast_mode"] == "live"
+
+
+def test_prepare_simulation_table_errors_when_unplayed_fixture_lacks_prediction() -> None:
+    with pytest.raises(ValueError, match="Unplayed fixtures require prediction"):
+        prepare_simulation_fixture_table(
+            two_match_fixture_reference(),
+            one_remaining_prediction().iloc[0:0],
+            one_completed_result(),
+        )
 
 
 def test_fixture_result_rows_include_fixed_and_sampled_scores() -> None:
@@ -480,3 +565,39 @@ def test_simulation_script_conditions_on_completed_results(
     assert "fixed completed result rows: 1" in output
     assert "backfilled rows still sampled: 0" in output
     assert "completed matches sampled as predictions: no" in output
+
+
+def test_simulation_script_accepts_remaining_only_live_predictions(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    fixture_path = tmp_path / "data" / "tournament" / "fixtures_2026.csv"
+    prediction_path = tmp_path / "data" / "tournament" / "fixture_predictions_2026_live.csv"
+    result_path = tmp_path / "data" / "tournament" / "results_2026.csv"
+    fixture_path.parent.mkdir(parents=True)
+    two_match_fixture_reference().assign(neutral=True, is_neutral=True).to_csv(
+        fixture_path,
+        index=False,
+    )
+    one_remaining_prediction().to_csv(prediction_path, index=False)
+    one_completed_result().to_csv(result_path, index=False)
+    monkeypatch.setattr("scripts.simulate_group_stage.DEFAULT_SIMULATION_COUNT", 5)
+
+    result = simulate_group_stage_main(
+        [
+            "--fixtures",
+            str(fixture_path),
+            "--predictions",
+            str(prediction_path),
+            "--results",
+            str(result_path),
+        ]
+    )
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "fixed completed result rows: 1" in output
+    assert "sampled remaining rows: 1" in output
+    assert "forecast_mode values: missing=1, live=1" in output
+    assert "live predictions used: yes" in output

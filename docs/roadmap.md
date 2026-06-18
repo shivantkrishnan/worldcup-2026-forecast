@@ -27,6 +27,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Conditional scoreline simulation for group-stage goal difference and goals scored.
 - Official-style group and best-third-place ranking helpers.
 - Display-status guardrail separating completed results, scheduled predictions, and audit probabilities.
+- Live remaining-fixture prediction generation using completed 2026 results for feature state only.
 
 ## Current Selected Baseline
 
@@ -56,7 +57,6 @@ After each variant:
 - Fill `data/tournament/fixtures_2026.csv` with manually maintained official fixture rows.
 - Generate `data/tournament/fixture_predictions_2026.csv` for known fixtures.
 - Maintain `data/tournament/results_2026.csv` so live simulations fix completed matches instead of sampling backfilled predictions.
-- Add live fixture-feature updating from completed 2026 results without retraining the baseline.
 - Add a lightweight result/audit workflow for refreshing official completed results as the group stage progresses.
 - Validate or refine the conditional scoreline layer against historical tournaments.
 - Extend Monte Carlo simulation from group-stage only to knockout brackets.

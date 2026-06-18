@@ -141,6 +141,28 @@ def test_missing_prediction_row_gets_prediction_missing_status() -> None:
     assert row["prediction_display_label"] == "Prediction unavailable"
 
 
+def test_display_table_handles_remaining_only_live_predictions() -> None:
+    remaining_only_predictions = make_predictions().loc[
+        make_predictions()["match_id"].eq("m2")
+    ]
+
+    display = build_match_display_table(
+        make_fixtures(),
+        predictions=remaining_only_predictions,
+        results=make_results(),
+    )
+
+    completed = display.loc[display["match_id"].eq("m1")].iloc[0]
+    scheduled = display.loc[display["match_id"].eq("m2")].iloc[0]
+    missing = display.loc[display["match_id"].eq("m3")].iloc[0]
+    assert completed["display_status"] == DISPLAY_STATUS_COMPLETED
+    assert completed["actual_result"] == "team_a_win"
+    assert completed["prediction_display_label"] == "Prediction unavailable"
+    assert scheduled["display_status"] == DISPLAY_STATUS_SCHEDULED
+    assert scheduled["prediction_display_label"] == "Prediction"
+    assert missing["display_status"] == DISPLAY_STATUS_PREDICTION_MISSING
+
+
 def test_actual_scores_from_results_do_not_overwrite_audit_probabilities() -> None:
     display = build_match_display_table(
         make_fixtures(),

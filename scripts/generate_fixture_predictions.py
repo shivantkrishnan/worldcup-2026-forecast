@@ -14,7 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.data.pipeline import load_baseline_training_matches  # noqa: E402
 from src.data.tournament_fixtures import load_tournament_fixtures  # noqa: E402
-from src.features.fixture_features import build_fixture_feature_rows  # noqa: E402
+from src.data.tournament_results import load_tournament_results  # noqa: E402
+from src.features.fixture_features import (  # noqa: E402
+    build_fixture_feature_rows,
+    build_live_feature_history,
+)
 from src.models.forecast import (  # noqa: E402
     format_prediction_output,
     predict_fixture_probabilities,
@@ -68,6 +72,7 @@ def resolve_feature_cutoff_date(
     forecast_mode: str,
     feature_cutoff_date: str | None = None,
     generated_at: str | None = None,
+    completed_results: pd.DataFrame | None = None,
 ) -> str:
     """Return the non-empty feature cutoff date implied by the forecast mode."""
     if feature_cutoff_date is not None:
@@ -78,8 +83,57 @@ def resolve_feature_cutoff_date(
     }:
         return DEFAULT_TRAINING_CUTOFF_DATE
     if forecast_mode == FORECAST_MODE_LIVE:
-        return str(pd.Timestamp(_timestamp(generated_at)).date())
+        if completed_results is None or completed_results.empty:
+            raise ValueError(
+                "Live forecast mode requires completed results to resolve the "
+                "default feature cutoff date."
+            )
+        result_dates = pd.to_datetime(
+            completed_results["match_date"],
+            errors="raise",
+        )
+        return str(result_dates.max().date())
     raise ValueError("Unknown forecast mode: " + forecast_mode)
+
+
+def _completed_result_match_ids(
+    completed_results: pd.DataFrame,
+    feature_cutoff_date: str,
+) -> set[str]:
+    """Return completed result IDs available through the feature cutoff."""
+    results = completed_results.copy(deep=True)
+    results["match_date"] = pd.to_datetime(results["match_date"], errors="raise")
+    if "status" in results.columns:
+        status = results["status"].astype("string").str.strip().str.casefold()
+        results = results.loc[status.eq("completed")].copy(deep=True)
+
+    cutoff = pd.Timestamp(feature_cutoff_date)
+    results = results.loc[results["match_date"] <= cutoff]
+    return set(results["match_id"].astype(str).str.strip())
+
+
+def _validate_no_backfilled_live_rows(
+    fixtures_to_predict: pd.DataFrame,
+    generated_date: object,
+) -> None:
+    """Prevent live mode from silently predicting past uncompleted fixtures."""
+    fixture_dates = pd.to_datetime(
+        fixtures_to_predict["match_date"],
+        errors="raise",
+    ).dt.date
+    past_uncompleted = fixture_dates < generated_date
+    if past_uncompleted.any():
+        missing_ids = sorted(
+            fixtures_to_predict.loc[past_uncompleted, "match_id"]
+            .astype(str)
+            .unique()
+        )
+        raise ValueError(
+            "Live forecast mode found fixture dates before the generation date "
+            "without completed results. Update results_2026.csv or use an "
+            "explicit audit mode. Affected match_id: "
+            + ", ".join(missing_ids)
+        )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -119,15 +173,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=RESULTS_2026_PATH,
         help="Path to manually maintained results_2026.csv for live mode.",
     )
+    parser.add_argument(
+        "--include-completed-for-audit",
+        action="store_true",
+        help=(
+            "In live mode, also generate rows for completed fixtures. By "
+            "default live output includes remaining fixtures only."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def generate_fixture_predictions(
     training_matches: pd.DataFrame,
     fixtures: pd.DataFrame,
+    completed_results: pd.DataFrame | None = None,
     feature_cutoff_date: str | None = None,
     forecast_mode: str | None = None,
     generated_at: str | None = None,
+    include_completed_for_audit: bool = False,
 ) -> pd.DataFrame:
     """Train selected baseline in memory and return fixture predictions."""
     normalized_fixtures = fixtures.copy(deep=True)
@@ -141,38 +205,64 @@ def generate_fixture_predictions(
         resolved_forecast_mode,
         feature_cutoff_date=feature_cutoff_date,
         generated_at=timestamp,
+        completed_results=completed_results,
     )
+    generated_date = pd.Timestamp(timestamp).date()
 
     model_bundle = train_selected_baseline(training_matches)
+    feature_history = training_matches
+    fixtures_to_predict = normalized_fixtures.copy(deep=True)
+
+    if resolved_forecast_mode == FORECAST_MODE_LIVE:
+        if completed_results is None:
+            raise ValueError("Live forecast mode requires completed_results.")
+        feature_history = build_live_feature_history(
+            training_matches,
+            completed_results,
+            feature_cutoff_date=resolved_feature_cutoff_date,
+        )
+        if not include_completed_for_audit:
+            completed_match_ids = _completed_result_match_ids(
+                completed_results,
+                resolved_feature_cutoff_date,
+            )
+            fixture_ids = normalized_fixtures["match_id"].astype(str).str.strip()
+            fixtures_to_predict = normalized_fixtures.loc[
+                ~fixture_ids.isin(completed_match_ids)
+            ].copy(deep=True)
+            _validate_no_backfilled_live_rows(fixtures_to_predict, generated_date)
+
     fixture_features = build_fixture_feature_rows(
-        training_matches,
-        normalized_fixtures,
+        feature_history,
+        fixtures_to_predict,
         include_elo=model_bundle.include_elo,
         elo_k_factor=model_bundle.elo_k_factor,
         elo_home_advantage=model_bundle.elo_home_advantage,
         feature_cutoff_date=resolved_feature_cutoff_date,
     )
     probabilities = predict_fixture_probabilities(model_bundle, fixture_features)
-    output = format_prediction_output(probabilities, normalized_fixtures)
+    output = format_prediction_output(probabilities, fixtures_to_predict)
 
     insert_after = output.columns.get_loc("match_date") + 1
-    output.insert(insert_after, "group", normalized_fixtures["group"].reset_index(drop=True))
+    output.insert(insert_after, "group", fixtures_to_predict["group"].reset_index(drop=True))
     output.insert(
         insert_after + 1,
         "stage",
-        normalized_fixtures["stage"].reset_index(drop=True),
+        fixtures_to_predict["stage"].reset_index(drop=True),
     )
 
-    generated_date = pd.Timestamp(timestamp).date()
     output["prediction_generated_at"] = timestamp
     output["training_cutoff_date"] = DEFAULT_TRAINING_CUTOFF_DATE
     output["feature_cutoff_date"] = resolved_feature_cutoff_date
     output["forecast_mode"] = resolved_forecast_mode
     output["model_name"] = MODEL_NAME
     output["selected_baseline_label"] = SELECTED_BASELINE_LABEL
-    output["is_backfilled"] = (
-        pd.to_datetime(normalized_fixtures["match_date"]).dt.date < generated_date
-    ).reset_index(drop=True)
+    if resolved_forecast_mode == FORECAST_MODE_LIVE and not include_completed_for_audit:
+        output["is_backfilled"] = False
+    else:
+        output["is_backfilled"] = (
+            pd.to_datetime(fixtures_to_predict["match_date"]).dt.date < generated_date
+        ).reset_index(drop=True)
     return output
 
 
@@ -213,10 +303,29 @@ def main(argv: list[str] | None = None) -> int:
             forecast_mode=args.forecast_mode,
             generated_at=generated_at,
         )
+        completed_results = None
+        if forecast_mode == FORECAST_MODE_LIVE:
+            results_path = Path(args.results)
+            if not results_path.exists():
+                print(
+                    "Live forecast mode requires manually maintained completed "
+                    f"results at {results_path}."
+                )
+                print(
+                    "No live predictions were generated; use "
+                    "backfilled_ex_ante or pre_tournament mode until "
+                    "results_2026.csv is available."
+                )
+                return 1
+            completed_results = load_tournament_results(
+                results_path,
+                fixtures_or_predictions=fixtures,
+            )
         feature_cutoff_date = resolve_feature_cutoff_date(
             forecast_mode,
             feature_cutoff_date=args.feature_cutoff_date,
             generated_at=generated_at,
+            completed_results=completed_results,
         )
     except FileNotFoundError as error:
         print(f"Missing required data: {error}")
@@ -226,38 +335,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Invalid fixture data: {error}")
         return 1
 
-    if forecast_mode == FORECAST_MODE_LIVE:
-        results_path = Path(args.results)
-        if not results_path.exists():
-            print(
-                "Live forecast mode requires manually maintained completed "
-                f"results at {results_path}."
-            )
-            print(
-                "No live predictions were generated; use backfilled_ex_ante "
-                "or pre_tournament mode until live fixture-feature conditioning "
-                "is wired."
-            )
-            return 1
-        print(
-            "Live forecast mode is guarded for now: results_2026.csv exists, "
-            "but live fixture-feature conditioning has not been implemented "
-            "in this script yet."
-        )
-        return 1
-
     predictions = generate_fixture_predictions(
         training_matches,
         fixtures,
+        completed_results=completed_results,
         feature_cutoff_date=feature_cutoff_date,
         forecast_mode=forecast_mode,
         generated_at=generated_at,
+        include_completed_for_audit=args.include_completed_for_audit,
     )
 
     print("Fixture Predictions")
     print("===================")
     print(f"forecast_mode: {forecast_mode}")
     print(f"feature_cutoff_date: {feature_cutoff_date}")
+    if forecast_mode == FORECAST_MODE_LIVE:
+        completed_count = len(fixtures) - len(predictions)
+        print(f"completed fixtures omitted from live output: {completed_count}")
+        print(
+            "recommended live output path: "
+            "data/tournament/fixture_predictions_2026_live.csv"
+        )
     _print_prediction_table(predictions)
 
     if args.output:

@@ -121,6 +121,17 @@ python scripts/generate_fixture_predictions.py --forecast-mode backfilled_ex_ant
 
 Prediction rows include `forecast_mode`, `prediction_generated_at`, `training_cutoff_date`, non-empty `feature_cutoff_date`, model labels, and `is_backfilled`. Backfilled ex-ante predictions are useful for reconstruction and demos, but they are not true live predictions.
 
+Generate true live predictions for remaining fixtures using completed 2026
+results for feature state only:
+
+```bash
+python scripts/generate_fixture_predictions.py --forecast-mode live --results data/tournament/results_2026.csv --output data/tournament/fixture_predictions_2026_live.csv
+```
+
+Live mode still trains the selected baseline only through `2026-06-10`. The
+completed 2026 results update rolling-form and Elo feature state only, and
+completed fixtures are omitted from live prediction output by default.
+
 Audit generated fixture predictions:
 
 ```bash
@@ -141,6 +152,18 @@ Run a group-stage Monte Carlo simulation:
 
 ```bash
 python scripts/simulate_group_stage.py
+```
+
+Run a live simulation from remaining-fixture predictions:
+
+```bash
+python scripts/simulate_group_stage.py --predictions data/tournament/fixture_predictions_2026_live.csv --results data/tournament/results_2026.csv
+```
+
+Compare backfilled ex-ante and live prediction files:
+
+```bash
+python scripts/compare_prediction_modes.py
 ```
 
 The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It fixes completed results when available, samples conditional scorelines for unplayed fixtures, prints forecast-mode/backfilled-row metadata and advancement probabilities, and does not write simulation files by default.
@@ -171,7 +194,7 @@ The scheduled-fixture forecast output design is documented in `docs/forecast_out
 The group-stage simulation design is documented in `docs/tournament_simulation.md`.
 Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
 
-Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
+Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files, including live prediction files, should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
 Completed-result ingestion is documented in `docs/tournament_data_ingestion.md` and `docs/results_2026_template.md`.
 
 ## Project Status / Roadmap

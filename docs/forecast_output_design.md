@@ -58,10 +58,11 @@ Fixture predictions now use explicit forecast-mode metadata:
   the generation date are marked `is_backfilled = true`.
 - `live`: reserved for forecasts that use completed 2026 results to update
   tournament state and fixture features while still training the baseline only
-  through `2026-06-10`. Simulation can now use `results_2026.csv` to fix
-  completed matches, but the prediction-generation script remains guarded until
-  live fixture-feature updating is implemented. Backfilled rows are not silently
-  treated as true live predictions.
+  through `2026-06-10`. Live prediction generation appends completed
+  `results_2026.csv` rows through an explicit `feature_cutoff_date` for feature
+  construction only. These completed 2026 results are not used for model
+  fitting, calibration fitting, imputation fitting, or scaling fitting.
+  Backfilled rows are not silently treated as true live predictions.
 
 The default mode is `backfilled_ex_ante` if prediction generation happens after
 any fixture date in the file; otherwise it is `pre_tournament`.
@@ -85,6 +86,33 @@ the fact and are not true live predictions.
 
 Only scheduled matches without completed results should be displayed as current
 predictions.
+
+## Live Fixture-Feature Updating
+
+Live prediction generation uses two separate match histories:
+
+- Training history: baseline-eligible historical rows through `2026-06-10`.
+- Feature history: the same baseline history plus verified completed 2026 World
+  Cup results through the live `feature_cutoff_date`.
+
+The selected baseline is trained on the training history only. The augmented
+feature history is used only to compute rolling team form and pre-match Elo
+state for remaining fixtures.
+
+By default, live mode emits predictions only for fixtures that do not already
+have completed results. A deliberate audit option may include completed
+fixtures, but those rows must be interpreted as audit/reconstruction rows, not
+current forecasts.
+
+Use a separate live output path such as:
+
+```text
+data/tournament/fixture_predictions_2026_live.csv
+```
+
+This avoids confusing current live probabilities with the reproducible
+backfilled ex-ante file. Generated live prediction files should remain
+uncommitted unless the project defines a snapshot/versioning policy.
 
 ## 2026 World Cup Neutral Defaults
 

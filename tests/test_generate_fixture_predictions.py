@@ -55,6 +55,48 @@ def make_fixtures() -> pd.DataFrame:
     )
 
 
+def make_live_fixtures() -> pd.DataFrame:
+    return normalize_tournament_fixtures(
+        pd.DataFrame(
+            [
+                {
+                    "match_id": "wc2026_a1",
+                    "match_date": "2026-06-12",
+                    "team_a": "Team 0",
+                    "team_b": "Team 3",
+                    "group": "A",
+                    "stage": "group",
+                },
+                {
+                    "match_id": "wc2026_a2",
+                    "match_date": "2026-06-16",
+                    "team_a": "Team 1",
+                    "team_b": "Team 4",
+                    "group": "A",
+                    "stage": "group",
+                },
+            ]
+        )
+    )
+
+
+def make_live_results() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "match_id": "wc2026_a1",
+                "match_date": "2026-06-12",
+                "team_a": "Team 0",
+                "team_b": "Team 3",
+                "team_a_goals": 1,
+                "team_b_goals": 0,
+                "result": "team_a_win",
+                "status": "completed",
+            }
+        ]
+    )
+
+
 def test_generate_fixture_predictions_runs_on_synthetic_fixture_data() -> None:
     predictions = generator.generate_fixture_predictions(
         make_training_matches(),
@@ -175,6 +217,82 @@ def test_live_mode_fails_gracefully_without_results_file(
     assert result == 1
     assert "Live forecast mode requires" in output
     assert "No live predictions were generated" in output
+
+
+def test_live_mode_uses_max_completed_result_date_as_default_cutoff() -> None:
+    predictions = generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_live_fixtures(),
+        completed_results=make_live_results(),
+        forecast_mode="live",
+        generated_at="2026-06-13T00:00:00+00:00",
+    )
+
+    assert set(predictions["match_id"]) == {"wc2026_a2"}
+    assert predictions["forecast_mode"].eq("live").all()
+    assert predictions["feature_cutoff_date"].eq("2026-06-12").all()
+    assert predictions["is_backfilled"].eq(False).all()
+
+
+def test_live_mode_trains_only_on_baseline_training_matches(monkeypatch) -> None:
+    captured: dict[str, set[str]] = {}
+    original_train = generator.train_selected_baseline
+
+    def capture_training_matches(training_matches: pd.DataFrame):
+        captured["training_match_ids"] = set(training_matches["match_id"].astype(str))
+        return original_train(training_matches)
+
+    monkeypatch.setattr(
+        generator,
+        "train_selected_baseline",
+        capture_training_matches,
+    )
+
+    generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_live_fixtures(),
+        completed_results=make_live_results(),
+        forecast_mode="live",
+        generated_at="2026-06-13T00:00:00+00:00",
+    )
+
+    assert "wc2026_a1" not in captured["training_match_ids"]
+
+
+def test_live_completed_results_are_used_for_feature_history(monkeypatch) -> None:
+    captured: dict[str, set[str]] = {}
+    original_build = generator.build_fixture_feature_rows
+
+    def capture_feature_history(completed_matches: pd.DataFrame, *args, **kwargs):
+        captured["feature_history_ids"] = set(completed_matches["match_id"].astype(str))
+        return original_build(completed_matches, *args, **kwargs)
+
+    monkeypatch.setattr(generator, "build_fixture_feature_rows", capture_feature_history)
+
+    generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_live_fixtures(),
+        completed_results=make_live_results(),
+        forecast_mode="live",
+        generated_at="2026-06-13T00:00:00+00:00",
+    )
+
+    assert "wc2026_a1" in captured["feature_history_ids"]
+
+
+def test_live_mode_can_include_completed_rows_for_audit_when_requested() -> None:
+    predictions = generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_live_fixtures(),
+        completed_results=make_live_results(),
+        forecast_mode="live",
+        generated_at="2026-06-13T00:00:00+00:00",
+        include_completed_for_audit=True,
+    )
+
+    assert set(predictions["match_id"]) == {"wc2026_a1", "wc2026_a2"}
+    completed_row = predictions.loc[predictions["match_id"].eq("wc2026_a1")].iloc[0]
+    assert bool(completed_row["is_backfilled"]) is True
 
 
 def test_simulate_group_stage_can_consume_fixture_predictions_style_dataframe() -> None:

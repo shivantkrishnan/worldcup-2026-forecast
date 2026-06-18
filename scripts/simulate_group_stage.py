@@ -15,6 +15,7 @@ from src.data.tournament_results import (  # noqa: E402
     load_tournament_results,
     merge_completed_results_with_fixtures_or_predictions,
 )
+from src.data.tournament_fixtures import load_tournament_fixtures  # noqa: E402
 from src.data.pipeline import load_baseline_training_matches  # noqa: E402
 from src.simulation.scorelines import build_empirical_scoreline_distributions  # noqa: E402
 from src.simulation.tournament import (  # noqa: E402
@@ -24,6 +25,7 @@ from src.simulation.tournament import (  # noqa: E402
 )
 from src.utils.config import (  # noqa: E402
     FIXTURE_PREDICTIONS_2026_PATH,
+    FIXTURES_2026_PATH,
     RESULTS_2026_PATH,
 )
 
@@ -43,6 +45,11 @@ def parse_args(argv: list[str] | None = None) -> object:
         "--predictions",
         default=FIXTURE_PREDICTIONS_2026_PATH,
         help="Path to fixture_predictions_2026.csv.",
+    )
+    parser.add_argument(
+        "--fixtures",
+        default=FIXTURES_2026_PATH,
+        help="Path to fixtures_2026.csv, used when predictions contain remaining fixtures only.",
     )
     parser.add_argument(
         "--results",
@@ -135,6 +142,123 @@ def _load_fixture_predictions(
     )
 
 
+def _validate_prediction_orientation(
+    fixtures: pd.DataFrame,
+    predictions: pd.DataFrame,
+) -> None:
+    """Validate prediction rows against fixture orientation when possible."""
+    if not {"team_a", "team_b"}.issubset(predictions.columns):
+        return
+
+    reference = fixtures[["match_id", "team_a", "team_b"]].copy(deep=True)
+    predicted = predictions[["match_id", "team_a", "team_b"]].copy(deep=True)
+    merged = predicted.merge(
+        reference,
+        on="match_id",
+        how="left",
+        suffixes=("_prediction", "_fixture"),
+        validate="one_to_one",
+    )
+    missing_fixture = merged["team_a_fixture"].isna()
+    if missing_fixture.any():
+        missing_ids = sorted(merged.loc[missing_fixture, "match_id"].astype(str).unique())
+        raise ValueError(
+            "Prediction rows contain match_id values not found in fixtures: "
+            + ", ".join(missing_ids)
+        )
+
+    mismatch = (
+        merged["team_a_prediction"].astype(str).ne(merged["team_a_fixture"].astype(str))
+        | merged["team_b_prediction"].astype(str).ne(merged["team_b_fixture"].astype(str))
+    )
+    if mismatch.any():
+        mismatch_ids = sorted(merged.loc[mismatch, "match_id"].astype(str).unique())
+        raise ValueError(
+            "Prediction team orientation does not match fixtures for match_id: "
+            + ", ".join(mismatch_ids)
+        )
+
+
+def _fill_completed_probability_placeholders(fixtures: pd.DataFrame) -> pd.DataFrame:
+    """Fill missing completed-row probabilities with one-hot actual outcomes."""
+    output = fixtures.copy(deep=True)
+    completed = output.get("is_completed", False)
+    if not isinstance(completed, pd.Series):
+        completed = pd.Series([False] * len(output), index=output.index)
+    completed = completed.map(_coerce_bool)
+
+    for column in ["p_team_a_win", "p_draw", "p_team_b_win"]:
+        if column not in output.columns:
+            output[column] = pd.NA
+
+    missing_probabilities = output[
+        ["p_team_a_win", "p_draw", "p_team_b_win"]
+    ].isna().any(axis=1)
+    fill_rows = completed & missing_probabilities
+    if not fill_rows.any():
+        return output
+
+    output.loc[fill_rows, ["p_team_a_win", "p_draw", "p_team_b_win"]] = 0.0
+    outcome_to_probability = {
+        "team_a_win": "p_team_a_win",
+        "draw": "p_draw",
+        "team_b_win": "p_team_b_win",
+    }
+    for index, actual_result in output.loc[fill_rows, "actual_result"].items():
+        output.loc[index, outcome_to_probability[str(actual_result)]] = 1.0
+    return output
+
+
+def prepare_simulation_fixture_table(
+    fixtures: pd.DataFrame,
+    predictions: pd.DataFrame,
+    results: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return all fixtures with completed results fixed and predictions overlaid.
+
+    Prediction files may contain only remaining unplayed fixtures, as long as
+    every fixture missing a prediction is covered by a completed result.
+    """
+    fixture_rows = fixtures.copy(deep=True)
+    prediction_rows = predictions.copy(deep=True)
+    fixture_rows["match_id"] = fixture_rows["match_id"].astype(str).str.strip()
+    prediction_rows["match_id"] = prediction_rows["match_id"].astype(str).str.strip()
+    _validate_prediction_orientation(fixture_rows, prediction_rows)
+
+    overlay_columns = [
+        column
+        for column in prediction_rows.columns
+        if column
+        not in {"match_date", "group", "stage", "team_a", "team_b"}
+    ]
+    merged = fixture_rows.merge(
+        prediction_rows[overlay_columns],
+        on="match_id",
+        how="left",
+        validate="one_to_one",
+    )
+    conditioned = merge_completed_results_with_fixtures_or_predictions(
+        merged,
+        results,
+    )
+    conditioned = _fill_completed_probability_placeholders(conditioned)
+
+    completed = conditioned["is_completed"].map(_coerce_bool)
+    missing_unplayed = ~completed & conditioned[
+        ["p_team_a_win", "p_draw", "p_team_b_win"]
+    ].isna().any(axis=1)
+    if missing_unplayed.any():
+        missing_ids = sorted(
+            conditioned.loc[missing_unplayed, "match_id"].astype(str).unique()
+        )
+        raise ValueError(
+            "Unplayed fixtures require prediction probabilities. Missing match_id: "
+            + ", ".join(missing_ids)
+        )
+
+    return validate_fixture_probability_table(conditioned)
+
+
 def _coerce_bool(value: object) -> bool:
     """Coerce common CSV boolean values for prediction metadata summaries."""
     if isinstance(value, bool):
@@ -177,12 +301,25 @@ def summarize_prediction_metadata(fixtures: pd.DataFrame) -> dict[str, object]:
 
     sampled_backfilled = backfilled & ~completed
 
+    if "feature_cutoff_date" in fixtures.columns:
+        feature_cutoff_date_counts = {
+            str(value): int(count)
+            for value, count in fixtures["feature_cutoff_date"]
+            .fillna("missing")
+            .value_counts(sort=False)
+            .items()
+        }
+    else:
+        feature_cutoff_date_counts = {"missing": int(len(fixtures))}
+
     return {
         "forecast_mode_counts": forecast_mode_counts,
+        "feature_cutoff_date_counts": feature_cutoff_date_counts,
         "backfilled_count": backfilled_count,
         "fixed_completed_count": fixed_completed_count,
         "sampled_backfilled_count": int(sampled_backfilled.sum()),
         "completed_rows_sampled_as_predictions": bool(sampled_backfilled.any()),
+        "live_predictions_used": bool(forecast_mode_counts.get("live", 0)),
     }
 
 
@@ -207,6 +344,7 @@ def _load_scoreline_distributions() -> tuple[dict, str]:
 def _condition_on_completed_results(
     fixtures: pd.DataFrame,
     results_path: str | Path = RESULTS_PATH,
+    fixture_path: str | Path = FIXTURES_2026_PATH,
     ignore_results: bool = False,
 ) -> tuple[pd.DataFrame, str]:
     """Return fixtures with completed results fixed when a result file exists."""
@@ -220,12 +358,25 @@ def _condition_on_completed_results(
             f"No results_2026.csv found at {path}; sampling all prediction rows.",
         )
 
-    results = load_tournament_results(path, fixtures_or_predictions=fixtures)
-    conditioned = merge_completed_results_with_fixtures_or_predictions(
-        fixtures,
-        results,
-    )
-    conditioned = validate_fixture_probability_table(conditioned)
+    fixture_reference_path = Path(fixture_path)
+    if fixture_reference_path.exists():
+        fixture_reference = load_tournament_fixtures(fixture_reference_path)
+        results = load_tournament_results(
+            path,
+            fixtures_or_predictions=fixture_reference,
+        )
+        conditioned = prepare_simulation_fixture_table(
+            fixture_reference,
+            fixtures,
+            results,
+        )
+    else:
+        results = load_tournament_results(path, fixtures_or_predictions=fixtures)
+        conditioned = merge_completed_results_with_fixtures_or_predictions(
+            fixtures,
+            results,
+        )
+        conditioned = validate_fixture_probability_table(conditioned)
     fixed_count = int(conditioned["is_completed"].map(_coerce_bool).sum())
     return (
         conditioned,
@@ -241,6 +392,7 @@ def main(argv: list[str] | None = None) -> int:
         fixtures, results_message = _condition_on_completed_results(
             fixtures,
             results_path=args.results,
+            fixture_path=args.fixtures,
             ignore_results=args.ignore_results,
         )
     except (FileNotFoundError, ValueError) as error:
@@ -264,6 +416,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Group-Stage Monte Carlo Simulation")
     print("==================================")
+    print(f"prediction file path: {args.predictions}")
+    print(f"results file path: {args.results}")
     print(source_message)
     print(results_message)
     print(f"simulation count: {DEFAULT_SIMULATION_COUNT:,}")
@@ -273,8 +427,13 @@ def main(argv: list[str] | None = None) -> int:
         "forecast_mode values: "
         + _format_counts(prediction_metadata["forecast_mode_counts"])
     )
+    print(
+        "feature_cutoff_date values: "
+        + _format_counts(prediction_metadata["feature_cutoff_date_counts"])
+    )
     print(f"backfilled rows: {prediction_metadata['backfilled_count']}")
     print(f"fixed completed result rows: {prediction_metadata['fixed_completed_count']}")
+    print(f"sampled remaining rows: {sampled_remaining_count}")
     print(
         "backfilled rows still sampled: "
         f"{prediction_metadata['sampled_backfilled_count']}"
@@ -287,6 +446,10 @@ def main(argv: list[str] | None = None) -> int:
             if prediction_metadata["completed_rows_sampled_as_predictions"]
             else "no"
         )
+    )
+    print(
+        "live predictions used: "
+        + ("yes" if prediction_metadata["live_predictions_used"] else "no")
     )
     if prediction_metadata["completed_rows_sampled_as_predictions"]:
         print(

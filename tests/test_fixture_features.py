@@ -1,6 +1,9 @@
 import pandas as pd
 
-from src.features.fixture_features import build_fixture_feature_rows
+from src.features.fixture_features import (
+    build_fixture_feature_rows,
+    build_live_feature_history,
+)
 
 
 def make_completed_matches() -> pd.DataFrame:
@@ -137,6 +140,81 @@ def test_feature_cutoff_date_is_respected() -> None:
         fixtures,
         feature_cutoff_date="2026-06-05",
     )
+
+    assert features.loc[0, "team_a_matches_played_before"] == 1
+    assert features.loc[0, "team_a_expanding_points_per_match"] == 3.0
+
+
+def test_live_feature_history_appends_completed_results_through_cutoff() -> None:
+    live_results = pd.DataFrame(
+        [
+            {
+                "match_id": "wc1",
+                "match_date": "2026-06-12",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+                "team_a_goals": 1,
+                "team_b_goals": 0,
+                "result": "team_a_win",
+                "status": "completed",
+            },
+            {
+                "match_id": "wc2",
+                "match_date": "2026-06-14",
+                "team_a": "Gamma",
+                "team_b": "Delta",
+                "team_a_goals": 0,
+                "team_b_goals": 0,
+                "result": "draw",
+                "status": "completed",
+            },
+        ]
+    )
+
+    history = build_live_feature_history(
+        make_completed_matches(),
+        live_results,
+        feature_cutoff_date="2026-06-12",
+    )
+
+    assert "wc1" in set(history["match_id"])
+    assert "wc2" not in set(history["match_id"])
+    assert bool(history.loc[history["match_id"].eq("wc1"), "is_neutral"].iloc[0])
+
+
+def test_live_same_date_completed_results_do_not_leak_into_fixture_features() -> None:
+    historical = make_completed_matches().iloc[:1].copy(deep=True)
+    live_results = pd.DataFrame(
+        [
+            {
+                "match_id": "wc_same_day",
+                "match_date": "2026-06-20",
+                "team_a": "Alpha",
+                "team_b": "Gamma",
+                "team_a_goals": 4,
+                "team_b_goals": 0,
+                "result": "team_a_win",
+                "status": "completed",
+            }
+        ]
+    )
+    fixtures = pd.DataFrame(
+        [
+            {
+                "match_id": "fixture_same_day",
+                "match_date": "2026-06-20",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+            }
+        ]
+    )
+
+    live_history = build_live_feature_history(
+        historical,
+        live_results,
+        feature_cutoff_date="2026-06-20",
+    )
+    features = build_fixture_feature_rows(live_history, fixtures)
 
     assert features.loc[0, "team_a_matches_played_before"] == 1
     assert features.loc[0, "team_a_expanding_points_per_match"] == 3.0

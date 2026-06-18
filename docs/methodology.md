@@ -129,6 +129,14 @@ audit rows. Once a completed result exists, the match is displayed as an actual
 result; any model probabilities attached to that match belong to prediction
 audit language, not live or future-prediction language.
 
+Live fixture-feature updating preserves the training boundary. Completed 2026
+World Cup results may be appended to the completed-match history used to build
+remaining-fixture rolling form and Elo features through an explicit live feature
+cutoff, but they are not used to fit the model, calibrator, imputer, or scaler.
+With date-only timestamps, same-date completed results remain excluded from
+same-date fixture features unless a future timestamped system proves kickoff
+order.
+
 The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. When completed 2026 results are present in `results_2026.csv`, those matches are fixed in every run and only remaining matches are sampled. Completed 2026 results can update tournament state and live simulation state, but they cannot train the first baseline model.
 
 Completed 2026 results should come from official or clearly source-attributed sources. Unverified results are omitted rather than inferred, because a wrong fixed result is more damaging to live simulation state than a missing one.

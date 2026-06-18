@@ -22,6 +22,15 @@ from src.features.team_form import (
 )
 
 REQUIRED_FIXTURE_COLUMNS = {"match_id", "match_date", "team_a", "team_b"}
+LIVE_RESULT_COLUMNS = {
+    "match_id",
+    "match_date",
+    "team_a",
+    "team_b",
+    "team_a_goals",
+    "team_b_goals",
+    "result",
+}
 
 
 def _coerce_bool(value: Any) -> bool | None:
@@ -108,6 +117,74 @@ def _prepare_completed_matches(
         cutoff = pd.Timestamp(feature_cutoff_date)
         history = history.loc[history["match_date"] <= cutoff].copy()
     return history
+
+
+def build_live_feature_history(
+    historical_completed_matches: pd.DataFrame,
+    tournament_results: pd.DataFrame,
+    feature_cutoff_date: str,
+    tournament_label: str = "FIFA World Cup 2026",
+) -> pd.DataFrame:
+    """Append completed 2026 results for feature construction only.
+
+    The returned history is intended for fixture feature generation, not model
+    fitting. Results are filtered through the explicit feature cutoff, and only
+    completed score-bearing rows are appended.
+    """
+    history = historical_completed_matches.copy(deep=True)
+    history["match_date"] = pd.to_datetime(history["match_date"], errors="raise")
+
+    results = tournament_results.copy(deep=True)
+    missing = LIVE_RESULT_COLUMNS.difference(results.columns)
+    if missing:
+        raise ValueError(
+            "Missing required tournament result columns for live features: "
+            + ", ".join(sorted(missing))
+        )
+
+    results["match_date"] = pd.to_datetime(results["match_date"], errors="raise")
+    if "status" in results.columns:
+        status = results["status"].astype("string").str.strip().str.casefold()
+        results = results.loc[status.eq("completed")].copy(deep=True)
+
+    cutoff = pd.Timestamp(feature_cutoff_date)
+    results = results.loc[results["match_date"] <= cutoff].copy(deep=True)
+
+    if results.empty:
+        return history
+
+    live_rows = pd.DataFrame(
+        {
+            "match_id": results["match_id"].astype(str).str.strip(),
+            "match_date": results["match_date"],
+            "team_a": results["team_a"].astype(str).str.strip(),
+            "team_b": results["team_b"].astype(str).str.strip(),
+            "team_a_goals": pd.to_numeric(
+                results["team_a_goals"],
+                errors="raise",
+            ),
+            "team_b_goals": pd.to_numeric(
+                results["team_b_goals"],
+                errors="raise",
+            ),
+            "result": results["result"].astype(str).str.strip(),
+            "tournament": tournament_label,
+            "is_neutral": True,
+        }
+    )
+
+    combined = pd.concat([history, live_rows], ignore_index=True, sort=False)
+    if combined["match_id"].duplicated().any():
+        duplicate_ids = sorted(
+            combined.loc[combined["match_id"].duplicated(keep=False), "match_id"]
+            .astype(str)
+            .unique()
+        )
+        raise ValueError(
+            "Live feature history contains duplicate match_id values: "
+            + ", ".join(duplicate_ids)
+        )
+    return combined
 
 
 def _team_feature_values(

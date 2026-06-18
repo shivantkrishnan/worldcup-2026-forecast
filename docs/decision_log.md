@@ -6,6 +6,35 @@ This log records methodological, data, validation, and product decisions that af
 
 ### Decision
 
+Enable live remaining-fixture prediction generation by appending completed 2026
+World Cup results to the feature-construction history only.
+
+### Rationale
+
+The dashboard should reflect live group state and recent completed matches, but
+the selected baseline remains a pre-tournament model trained only through
+`2026-06-10`. Separating training history from feature history lets rolling
+form and Elo state update without retraining, recalibrating, or refitting
+preprocessing on current World Cup outcomes.
+
+### Alternatives Considered
+
+- Retrain the baseline on completed 2026 World Cup matches.
+- Keep live predictions identical to backfilled ex-ante predictions.
+- Generate live rows for completed fixtures by default.
+
+### Implications for Modeling/Product
+
+Live mode requires `results_2026.csv`, defaults the feature cutoff to the max
+completed result date, emits remaining fixtures only by default, and should use
+a separate generated output such as
+`data/tournament/fixture_predictions_2026_live.csv`. Generated live prediction
+files remain uncommitted unless a snapshot policy is defined.
+
+## 2026-06-18
+
+### Decision
+
 Use an explicit match display table to separate completed results, scheduled
 predictions, and prediction-audit probabilities.
 

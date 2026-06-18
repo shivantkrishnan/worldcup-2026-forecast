@@ -227,6 +227,41 @@ def _add_team_result(
     table.loc[mask, "goal_difference"] += goals_for - goals_against
 
 
+def _add_team_result_to_record(
+    records: dict[tuple[Any, Any], dict[str, Any]],
+    group: Any,
+    team: Any,
+    points: int,
+    win: int,
+    draw: int,
+    loss: int,
+    goals_for: int = 0,
+    goals_against: int = 0,
+) -> None:
+    """Update one team standing record without repeated pandas indexing."""
+    record = records[(group, team)]
+    record["played"] += 1
+    record["points"] += points
+    record["wins"] += win
+    record["draws"] += draw
+    record["losses"] += loss
+    record["goals_for"] += goals_for
+    record["goals_against"] += goals_against
+    record["goal_difference"] += goals_for - goals_against
+
+
+def _records_to_group_table(
+    records: dict[tuple[Any, Any], dict[str, Any]],
+) -> pd.DataFrame:
+    """Convert keyed standing records back to a group table dataframe."""
+    return pd.DataFrame(
+        [
+            {"group": group, "team": team, **values}
+            for (group, team), values in records.items()
+        ]
+    )
+
+
 def _completed_score(row: pd.Series) -> tuple[int, int]:
     """Return completed goals when present, otherwise placeholder zeros."""
     if not _row_is_completed(row):
@@ -470,6 +505,14 @@ def simulate_group_stage_once(
     """Simulate one group stage and return one standings row per team."""
     validated = validate_fixture_probability_table(fixtures)
     table = _initial_group_table(validated)
+    records = {
+        (row["group"], row["team"]): {
+            key: value
+            for key, value in row.items()
+            if key not in {"group", "team"}
+        }
+        for row in table.to_dict("records")
+    }
     match_results = simulate_fixture_results_once(
         validated,
         rng=rng,
@@ -485,8 +528,8 @@ def simulate_group_stage_once(
         team_b_goals = int(row["team_b_goals"])
 
         if outcome == OUTCOME_TEAM_A_WIN:
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_a,
                 points_for_win,
@@ -496,8 +539,8 @@ def simulate_group_stage_once(
                 goals_for=team_a_goals,
                 goals_against=team_b_goals,
             )
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_b,
                 0,
@@ -508,8 +551,8 @@ def simulate_group_stage_once(
                 goals_against=team_a_goals,
             )
         elif outcome == OUTCOME_TEAM_B_WIN:
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_a,
                 0,
@@ -519,8 +562,8 @@ def simulate_group_stage_once(
                 goals_for=team_a_goals,
                 goals_against=team_b_goals,
             )
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_b,
                 points_for_win,
@@ -531,8 +574,8 @@ def simulate_group_stage_once(
                 goals_against=team_a_goals,
             )
         else:
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_a,
                 points_for_draw,
@@ -542,8 +585,8 @@ def simulate_group_stage_once(
                 goals_for=team_a_goals,
                 goals_against=team_b_goals,
             )
-            _add_team_result(
-                table,
+            _add_team_result_to_record(
+                records,
                 group,
                 team_b,
                 points_for_draw,
@@ -554,6 +597,7 @@ def simulate_group_stage_once(
                 goals_against=team_a_goals,
             )
 
+    table = _records_to_group_table(records)
     ranked_groups = [
         rank_group_table(
             group_table,

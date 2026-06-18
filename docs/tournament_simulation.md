@@ -43,7 +43,18 @@ That is useful for methodology and demos, but it is not a true live state.
 A true live group-stage simulation combines:
 
 - fixed completed results from `results_2026.csv`,
-- generated probabilities from `fixture_predictions_2026.csv` for remaining matches.
+- generated live probabilities for remaining matches.
+
+The simulation script can now accept a prediction file containing only
+remaining fixtures, for example:
+
+```text
+data/tournament/fixture_predictions_2026_live.csv
+```
+
+When a fixture is missing from that prediction file, it must be covered by a
+completed result. If any unplayed fixture lacks both a result and prediction
+probabilities, the simulation fails instead of filling in a silent fallback.
 
 The current live simulation samples approximate scorelines for unplayed matches
 so goal difference and goals scored can affect group and third-place ranking.
@@ -167,6 +178,8 @@ Next steps before a complete tournament simulator:
 - Add or maintain real 2026 fixtures at `data/tournament/fixtures_2026.csv`.
 - Generate real fixture predictions at `data/tournament/fixture_predictions_2026.csv`.
 - Maintain completed 2026 results in `data/tournament/results_2026.csv`.
+- Generate live remaining-fixture predictions separately, such as
+  `data/tournament/fixture_predictions_2026_live.csv`.
 - Validate or improve the scoreline layer with historical tournament scorelines.
 - Build knockout bracket simulation.
 - Integrate prediction logging and post-result audit.
