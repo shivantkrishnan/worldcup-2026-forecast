@@ -414,3 +414,17 @@ Broad rolling-origin windows validate general international-football performance
 For each held-out tournament, training rows must occur strictly before the tournament start date and test rows must come only from that World Cup. The validation compares no-Elo, simple Elo, and selected K=10/home=50 Elo calibrated logistic setups. The 2026 World Cup remains excluded from validation by default.
 
 The first run over the 2002, 2006, 2010, 2014, 2018, and 2022 FIFA World Cups supports the selected K=10/home=50 setup by mean log loss (`1.137800`) versus no-Elo (`1.168182`) and simple Elo (`1.172695`). It beats simple Elo on log loss in 6 of 6 World Cup holdouts and no-Elo in 5 of 6. Mean ECE remains worse than no-Elo, so calibration caveats continue to apply.
+
+## 2026-06-18
+
+### Decision
+
+Add the first scheduled-fixture forecast output layer.
+
+### Rationale
+
+Tournament forecasting and the Streamlit predictor need fixture-level probabilities before full Monte Carlo simulation. The output layer should train the selected baseline in memory, build fixture features without requiring future scores, and report the full 3-class probability vector.
+
+### Implications for Modeling/Product
+
+Fixture features use only completed matches strictly before the fixture date, with same-date completed matches excluded under date-only timestamp logic. Future 2026 World Cup fixtures default to neutral if no neutral flag is supplied, so the historical Elo home adjustment is not applied as a generic World Cup host effect. Favorite and confidence labels are display aids layered on top of probabilities.

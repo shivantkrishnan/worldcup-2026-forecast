@@ -138,6 +138,8 @@ sigmoid-calibrated logistic regression with rolling team-form and pre-match Elo 
 
 This selection is provisional and tied to the current feature set, validation design, and manually maintained historical data source.
 
+The first forecast output layer now trains this selected baseline in memory and applies it to scheduled fixtures. It returns full `team_a_win`/`draw`/`team_b_win` probabilities plus a favorite display label, while preserving the same leakage rule that fixture features may use only completed matches before the fixture date.
+
 ## Why Calibrated Logistic Is Selected
 
 The project prioritizes probability quality. Log loss directly rewards assigning higher probability to the true outcome and strongly penalizes confident wrong forecasts.
@@ -188,4 +190,5 @@ Candidate next steps:
 - Test margin-of-victory or tournament-weighted Elo variants.
 - Test whether the K=10, home=50 selection holds under tournament-specific backtests.
 - Add tournament-specific backtests over prior World Cups and major tournaments.
+- Feed fixture-level probabilities into the first Monte Carlo tournament simulator.
 - Revisit calibration after stronger rating features are available.

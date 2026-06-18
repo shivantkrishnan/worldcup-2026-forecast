@@ -18,6 +18,8 @@ This model is intended to provide baseline 3-class international football match 
 
 It is the current probability-quality baseline for future pre-tournament and live forecasting work.
 
+The first forecast output layer uses this model to produce scheduled-fixture probabilities and a user-facing favorite display. The favorite is derived from the largest predicted class probability and should be shown alongside all three probabilities.
+
 ## Not Intended Use
 
 This model is not intended for:
@@ -78,6 +80,8 @@ Current-match outcomes are excluded from feature calculations through shift/lag 
 Elo features are emitted before rating updates. Because only match dates are available, ratings are updated after the full date block so same-date results cannot affect same-date feature rows. Home advantage affects expected score for non-neutral matches only; it does not permanently inflate underlying ratings.
 
 The home adjustment is mainly a historical-learning correction for non-neutral matches where `team_a` is the home team. It helps separate location context from underlying team strength. It should not be blindly applied to 2026 World Cup fixtures; host effects for USA, Canada, and Mexico should be modeled later as explicit tournament-state or venue features.
+
+Scheduled fixtures do not require scores or result labels. Their feature rows are built from completed matches strictly before the fixture date, with same-date completed matches excluded under date-only timestamp logic.
 
 ## Validation Design
 

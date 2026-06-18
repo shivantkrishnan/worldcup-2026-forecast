@@ -18,6 +18,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Elo feature-set evaluation and updated selected baseline.
 - Elo K-factor and home/neutral-site variant evaluation.
 - Tournament-specific baseline backtesting script and methodology.
+- Scheduled-fixture forecast output layer.
 
 ## Current Selected Baseline
 

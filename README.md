@@ -99,6 +99,14 @@ python scripts/backtest_baseline_models.py
 
 The backtest script prints split-by-split and aggregate metrics only; it does not write model artifacts by default.
 
+Print sample scheduled-fixture predictions:
+
+```bash
+python scripts/predict_sample_fixtures.py
+```
+
+The prediction script trains the selected baseline in memory, builds leakage-safe fixture feature rows, and prints full 3-class probabilities plus a favorite display. It does not write model artifacts or processed feature files by default.
+
 Methodology and project decisions are tracked continuously in:
 
 ```text
@@ -112,6 +120,8 @@ docs/model_card_baseline.md
 These notes are intended to become the methodology section of the dashboard or website.
 
 The current baseline selection is summarized in `docs/model_selection_report.md`, and the baseline model card is in `docs/model_card_baseline.md`.
+
+The scheduled-fixture forecast output design is documented in `docs/forecast_output_design.md`.
 
 ## Project Status / Roadmap
 

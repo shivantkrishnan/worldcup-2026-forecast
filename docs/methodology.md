@@ -116,6 +116,8 @@ The first tournament-specific validation over the 2002 through 2022 FIFA World C
 
 Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected model family. The selected feature set now includes leakage-safe rolling team-form plus pre-match Elo features.
 
+The first forecast output layer trains this selected baseline in memory and produces scheduled-fixture probabilities without requiring fixture scores or outcomes. Fixture features use only completed matches strictly before the fixture date; with date-only timestamps, same-date completed matches are excluded unless a future timestamped system proves they occurred earlier.
+
 Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.
 
 K=10 is interpreted as an empirically selected smoothing parameter for sparse, noisy international football results, with rolling form features carrying more of the short-run momentum signal.
@@ -157,6 +159,8 @@ The project should be clear about whether odds are used for benchmarking, calibr
 `live_forecast` uses the pre-tournament trained model while updating standings and tournament state from completed World Cup matches.
 
 `prediction_audit` compares predicted probabilities against completed match outcomes and distinguishes true pre-match logged predictions from backfilled ex-ante predictions.
+
+Scheduled fixture predictions output the full 3-class probability vector first. Favorite labels and confidence labels are display aids layered on top of those probabilities, not replacements for calibrated probability reporting.
 
 ## Limitations and Future Improvements
 
