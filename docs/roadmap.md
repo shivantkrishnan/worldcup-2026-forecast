@@ -17,6 +17,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Leakage-safe Elo features.
 - Elo feature-set evaluation and updated selected baseline.
 - Elo K-factor and home/neutral-site variant evaluation.
+- Tournament-specific baseline backtesting script and methodology.
 
 ## Current Selected Baseline
 
@@ -29,7 +30,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 
 Continue refining Elo variants:
 
-- Tournament-specific validation of the selected K/home setup.
+- Review tournament-specific validation results for the selected K/home setup.
 - Margin-of-victory adjustment.
 - Tournament-weighted Elo.
 

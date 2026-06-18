@@ -87,6 +87,30 @@ Compared with the current simple Elo setup, K=20 and home advantage=0:
 
 K=10 is methodologically defensible because it is selected by out-of-sample rolling-origin log loss for international football, not imported from chess-rating convention. International matches are sparse, irregular, and noisy; a lower K lets Elo act as a slower-moving opponent-adjusted strength signal while rolling team-form features capture short-run momentum.
 
+The 50-point home adjustment is included primarily to learn from historical non-neutral matches where `team_a` is the home team. It affects expected score and rating updates for that match only, so it does not permanently inflate a team's rating. This should not be read as a generic home bonus for 2026 World Cup fixtures; most tournament matches should remain neutral unless later host/venue features explicitly model USA, Canada, or Mexico effects.
+
+## Tournament-Specific Backtesting
+
+The next validation layer evaluates the selected model family on held-out FIFA World Cups. For each target tournament year, training rows must occur strictly before that tournament starts, and test rows must come only from that World Cup.
+
+This differs from broad rolling-origin validation because it focuses on the World Cup match environment. The first tournament-specific script compares:
+
+- No-Elo calibrated logistic regression.
+- Simple Elo calibrated logistic regression, K=20/home=0.
+- Selected Elo calibrated logistic regression, K=10/home=50.
+
+Results are documented in `docs/tournament_backtesting.md`. Model selection should be revisited if the selected K/home variant materially underperforms on World Cup-specific log loss.
+
+The first tournament-specific run supports the selected setup by log loss:
+
+- Selected K=10/home=50 mean tournament log loss: `1.137800`.
+- Simple K=20/home=0 mean tournament log loss: `1.172695`.
+- No-Elo mean tournament log loss: `1.168182`.
+- Selected K=10/home=50 beats simple Elo in 6 of 6 World Cup holdouts.
+- Selected K=10/home=50 beats no-Elo in 5 of 6 World Cup holdouts.
+
+The ECE caveat remains: selected Elo mean tournament ECE is `0.117387`, worse than no-Elo at `0.067903`.
+
 ## Rolling-Origin Backtest Results
 
 The rolling-origin backtest uses expanding training windows, 24-month test windows, and a final test end date of `2026-06-10`.
@@ -151,7 +175,7 @@ Current limitations:
 - No squad, player, market, or tournament-stage features are included yet.
 - The selected baseline is chosen by log loss, not by uniform superiority across all metrics.
 - ECE does not consistently improve with sigmoid calibration or Elo features.
-- Rolling-origin windows are broad 24-month windows, not tournament-specific backtests.
+- Rolling-origin windows are broad 24-month windows; tournament-specific backtests are now a separate, smaller-sample stress test.
 - Raw data is manually downloaded and locally maintained.
 - No model artifact is written by default.
 

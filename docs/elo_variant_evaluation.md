@@ -29,6 +29,8 @@ In the compact grid, K=10 with a 50-point non-neutral home adjustment had the be
 
 Historical non-neutral international matches often include travel, crowd, familiarity, and officiating/context effects that can favor the home side. Since `team_a` maps to the home team in the raw historical dataset for non-neutral matches, a home adjustment can improve the expected-score calculation.
 
+If ignored, Elo can over-credit the home team's underlying strength for wins that partly reflect match location. The fixed home adjustment is therefore used to learn from historical non-neutral matches more cleanly, not to assert that location should dominate future tournament forecasts.
+
 Home advantage should not apply to neutral-site matches. Many World Cup and tournament matches are marked neutral, and applying a home bonus there would add a false edge unless a separate host-country or crowd model is explicitly introduced later.
 
 ## Effective Rating, Not Permanent Rating Inflation
@@ -48,6 +50,8 @@ The underlying pre-match ratings remain unchanged. This prevents a team from per
 When a match is marked `is_neutral=True` or `neutral=True`, the home advantage applied is `0`, even if the variant's home-advantage parameter is positive.
 
 World Cup and tournament matches marked neutral should not receive a home bonus by default. Host-country effects can be modeled later as a separate feature once the tournament-state schema is mature.
+
+The 2026 World Cup is especially important here because the tournament has three host nations and rotating venues. USA, Canada, and Mexico effects should not be approximated by blindly applying generic historical home advantage; they belong in an explicit host/venue feature family.
 
 ## Selection Metrics
 

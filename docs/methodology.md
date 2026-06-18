@@ -86,6 +86,8 @@ The second team-level feature family is Elo-style team strength. Elo ratings are
 
 Elo variants may adjust expected score with a temporary home-advantage term for non-neutral matches. The home term affects only the match-level expected score and update calculation; it does not permanently inflate the team's underlying rating. Neutral-site matches receive no home bonus unless a separate host or venue model is introduced later.
 
+Home advantage is considered because historical non-neutral international matches can include crowd, travel, familiarity, venue, and local-context effects. If that context is ignored, Elo can over-credit a home team's underlying strength for wins that partly reflect location. The current adjustment is therefore a historical-learning device, not a claim that generic home advantage should drive 2026 World Cup forecasts. Most 2026 fixtures should be treated as neutral by default, and USA, Canada, or Mexico host effects should later be modeled as explicit tournament-state or venue features.
+
 Initial features should be simple and interpretable before adding complexity. Each new feature group should be justified by football intuition and tested by whether it improves probabilistic forecast quality.
 
 Feature readiness is audited before baseline training. The audit uses the same time-aware split philosophy as model validation and reports target balance, feature missingness, high-missingness features, fully missing features, and excluded non-numeric feature candidates.
@@ -107,6 +109,10 @@ The first baseline compares a class-prior probability model against a multinomia
 The baseline evaluation also compares an internally calibrated logistic regression variant. Calibration is fitted only on training data through internal cross-validation, never on the test set.
 
 Rolling-origin backtests refit preprocessing, imputation, scaling, logistic regression, and calibration independently inside each training window.
+
+Tournament-specific backtesting is now a separate validation layer. It holds out prior FIFA World Cups, trains only on matches before each tournament starts, and tests only on that tournament's matches. This checks whether the selected broad all-match baseline remains credible in the match environment the dashboard ultimately forecasts.
+
+The first tournament-specific validation over the 2002 through 2022 FIFA World Cups supports the selected K=10/home=50 Elo setup by mean log loss, but it also reinforces the calibration caveat because ECE remains worse than the no-Elo setup.
 
 Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected model family. The selected feature set now includes leakage-safe rolling team-form plus pre-match Elo features.
 

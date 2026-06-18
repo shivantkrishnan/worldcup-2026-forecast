@@ -77,6 +77,8 @@ Current-match outcomes are excluded from feature calculations through shift/lag 
 
 Elo features are emitted before rating updates. Because only match dates are available, ratings are updated after the full date block so same-date results cannot affect same-date feature rows. Home advantage affects expected score for non-neutral matches only; it does not permanently inflate underlying ratings.
 
+The home adjustment is mainly a historical-learning correction for non-neutral matches where `team_a` is the home team. It helps separate location context from underlying team strength. It should not be blindly applied to 2026 World Cup fixtures; host effects for USA, Canada, and Mexico should be modeled later as explicit tournament-state or venue features.
+
 ## Validation Design
 
 Validation is time-aware.
@@ -84,6 +86,8 @@ Validation is time-aware.
 The single holdout trains before `2022-01-01` and tests on baseline-eligible matches from `2022-01-01` through `2026-06-10`.
 
 Rolling-origin validation uses expanding training windows and future test windows through `2026-06-10`. Each split refits preprocessing, imputation, scaling, logistic regression, and sigmoid calibration using training rows only.
+
+Tournament-specific validation holds out prior FIFA World Cups. For each tournament year, training rows must occur strictly before the first match of that World Cup, and test rows come only from that tournament.
 
 ## Metrics
 
@@ -113,11 +117,19 @@ Rolling-origin selected-model results:
 | Simple Elo, K=20/home=0 | 1.197724 | 0.013563 | 0.521042 | 0.594243 | 0.039671 |
 | Selected Elo, K=10/home=50 | 1.186855 | 0.012516 | 0.522831 | 0.594480 | 0.041903 |
 
+Tournament-specific selected-model results across the 2002, 2006, 2010, 2014, 2018, and 2022 FIFA World Cups:
+
+| Feature Set | Mean Log Loss | Mean Brier | Mean Accuracy | Mean ECE |
+| --- | ---: | ---: | ---: | ---: |
+| No-Elo | 1.168182 | 0.597721 | 0.520833 | 0.067903 |
+| Simple Elo, K=20/home=0 | 1.172695 | 0.585348 | 0.539062 | 0.118023 |
+| Selected Elo, K=10/home=50 | 1.137800 | 0.575107 | 0.549479 | 0.117387 |
+
 ## Calibration Notes
 
 The selected baseline feature set improves rolling-origin mean log loss over the no-Elo feature set and over the simple Elo setup. The K=10/home=50 variant beats simple Elo on log loss in 6 of 6 rolling-origin windows.
 
-However, it does not consistently improve expected calibration error. The selected K=10/home=50 variant worsens mean ECE relative to simple Elo, so probability-bin calibration remains a visible caveat.
+Tournament-specific validation also favors K=10/home=50 on log loss, but it does not solve expected calibration error. The selected K=10/home=50 variant worsens mean ECE relative to no-Elo in World Cup holdouts, so probability-bin calibration remains a visible caveat.
 
 The model should therefore be described as the current probability-quality baseline, not as a fully calibrated or final model.
 
@@ -128,7 +140,7 @@ Known limitations:
 - Only rolling team-form and simple Elo features are included.
 - Elo has a fixed home advantage but no margin-of-victory, tournament weighting, host-country effect, or uncertainty adjustment yet.
 - No player, squad, market, or tactical inputs.
-- No tournament-specific backtesting yet.
+- Tournament-specific backtesting is small-sample and should be interpreted as a stress test, not a replacement for broad rolling-origin validation.
 - Calibration is limited to sigmoid calibration.
 - Missing rolling-history values are handled by median imputation plus missingness indicators.
 - Data source is manually downloaded and locally maintained.

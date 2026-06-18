@@ -63,6 +63,8 @@ Home advantage is modeled as a temporary expected-score adjustment, not as a per
 
 For non-neutral matches, `home_advantage` is added to `team_a`'s effective rating because `team_a` maps to the home team in the raw historical dataset. For neutral-site matches, no home advantage is applied.
 
+The historical rationale is that non-neutral international matches can include crowd, travel, familiarity, venue, and local-context effects. A fixed home adjustment helps the rating update avoid treating every home result as pure evidence of underlying team strength.
+
 The emitted raw rating difference remains:
 
 ```text
@@ -76,6 +78,8 @@ elo_team_a_pre + elo_home_advantage_applied - elo_team_b_pre
 ```
 
 This keeps underlying team strength separate from match-location context.
+
+For 2026 World Cup forecasting, this does not mean applying generic home advantage to every match. Most World Cup fixtures should be treated as neutral by default. Host-country effects for USA, Canada, and Mexico should be added later as separate tournament-state or venue features if the project chooses to model them.
 
 ## Draw Handling
 

@@ -384,3 +384,33 @@ K controls rating update speed, and international football differs from chess or
 ### Implications for Modeling/Product
 
 The selected K remains provisional. The dashboard methodology should describe K=10 as a validated forecasting choice for this dataset, not as a universal rating rule. Tournament-specific backtests, margin-of-victory Elo, tournament weighting, and host-country effects may change the preferred K later.
+
+## 2026-06-18
+
+### Decision
+
+Document historical home advantage as a temporary Elo expected-score adjustment, not a generic 2026 World Cup home bonus.
+
+### Rationale
+
+Historical non-neutral international matches include crowd, travel, familiarity, venue, and local-context effects. If ignored, Elo can over-credit the home team's underlying strength for results that partly reflect match location. The adjustment applies only inside the match expected-score and update calculation, leaving underlying ratings as team-strength state variables.
+
+### Implications for Modeling/Product
+
+Most 2026 World Cup fixtures should be treated as neutral by default. USA, Canada, and Mexico host effects should be modeled later as explicit tournament-state or venue features rather than as generic historical home advantage.
+
+## 2026-06-18
+
+### Decision
+
+Add tournament-specific baseline validation over prior FIFA World Cups.
+
+### Rationale
+
+Broad rolling-origin windows validate general international-football performance, but the dashboard's core forecasting environment is the World Cup. Holding out prior World Cups tests whether the selected feature/model setup remains credible on tournament matches.
+
+### Implications for Modeling/Product
+
+For each held-out tournament, training rows must occur strictly before the tournament start date and test rows must come only from that World Cup. The validation compares no-Elo, simple Elo, and selected K=10/home=50 Elo calibrated logistic setups. The 2026 World Cup remains excluded from validation by default.
+
+The first run over the 2002, 2006, 2010, 2014, 2018, and 2022 FIFA World Cups supports the selected K=10/home=50 setup by mean log loss (`1.137800`) versus no-Elo (`1.168182`) and simple Elo (`1.172695`). It beats simple Elo on log loss in 6 of 6 World Cup holdouts and no-Elo in 5 of 6. Mean ECE remains worse than no-Elo, so calibration caveats continue to apply.
