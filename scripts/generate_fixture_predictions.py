@@ -85,12 +85,15 @@ def generate_fixture_predictions(
     )
 
     timestamp = generated_at or pd.Timestamp.utcnow().isoformat()
+    generated_date = pd.Timestamp(timestamp).date()
     output["prediction_generated_at"] = timestamp
     output["training_cutoff_date"] = DEFAULT_TRAINING_CUTOFF_DATE
     output["feature_cutoff_date"] = feature_cutoff_date
     output["model_name"] = MODEL_NAME
     output["selected_baseline_label"] = SELECTED_BASELINE_LABEL
-    output["is_backfilled"] = False
+    output["is_backfilled"] = (
+        pd.to_datetime(normalized_fixtures["match_date"]).dt.date < generated_date
+    ).reset_index(drop=True)
     return output
 
 

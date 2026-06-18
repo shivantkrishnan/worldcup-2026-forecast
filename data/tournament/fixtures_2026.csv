@@ -1,0 +1,73 @@
+match_id,match_date,team_a,team_b,group,stage,kickoff_time,venue,city,country,neutral,is_neutral,source,last_updated
+wc2026_group_a_01,2026-06-11,Mexico,South Africa,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_a_02,2026-06-11,South Korea,Czech Republic,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_a_03,2026-06-18,Czech Republic,South Africa,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_a_04,2026-06-18,Mexico,South Korea,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_a_05,2026-06-24,Czech Republic,Mexico,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_a_06,2026-06-24,South Africa,South Korea,A,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_01,2026-06-12,Canada,Bosnia and Herzegovina,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_02,2026-06-13,Qatar,Switzerland,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_03,2026-06-18,Switzerland,Bosnia and Herzegovina,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_04,2026-06-18,Canada,Qatar,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_05,2026-06-24,Switzerland,Canada,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_b_06,2026-06-24,Bosnia and Herzegovina,Qatar,B,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_01,2026-06-13,Brazil,Morocco,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_02,2026-06-13,Haiti,Scotland,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_03,2026-06-19,Scotland,Morocco,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_04,2026-06-19,Brazil,Haiti,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_05,2026-06-24,Scotland,Brazil,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_c_06,2026-06-24,Morocco,Haiti,C,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_01,2026-06-12,United States,Paraguay,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_02,2026-06-13,Australia,Turkey,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_03,2026-06-19,United States,Australia,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_04,2026-06-19,Turkey,Paraguay,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_05,2026-06-25,Turkey,United States,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_d_06,2026-06-25,Paraguay,Australia,D,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_01,2026-06-14,Germany,Curaçao,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_02,2026-06-14,Ivory Coast,Ecuador,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_03,2026-06-20,Germany,Ivory Coast,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_04,2026-06-20,Ecuador,Curaçao,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_05,2026-06-25,Curaçao,Ivory Coast,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_e_06,2026-06-25,Ecuador,Germany,E,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_01,2026-06-14,Netherlands,Japan,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_02,2026-06-14,Sweden,Tunisia,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_03,2026-06-20,Netherlands,Sweden,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_04,2026-06-20,Tunisia,Japan,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_05,2026-06-25,Japan,Sweden,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_f_06,2026-06-25,Tunisia,Netherlands,F,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_01,2026-06-15,Belgium,Egypt,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_02,2026-06-15,Iran,New Zealand,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_03,2026-06-21,Belgium,Iran,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_04,2026-06-21,New Zealand,Egypt,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_05,2026-06-26,Egypt,Iran,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_g_06,2026-06-26,New Zealand,Belgium,G,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_01,2026-06-15,Spain,Cape Verde,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_02,2026-06-15,Saudi Arabia,Uruguay,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_03,2026-06-21,Spain,Saudi Arabia,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_04,2026-06-21,Uruguay,Cape Verde,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_05,2026-06-26,Cape Verde,Saudi Arabia,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_h_06,2026-06-26,Uruguay,Spain,H,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_01,2026-06-16,France,Senegal,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_02,2026-06-16,Iraq,Norway,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_03,2026-06-22,France,Iraq,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_04,2026-06-22,Norway,Senegal,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_05,2026-06-26,Norway,France,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_i_06,2026-06-26,Senegal,Iraq,I,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_01,2026-06-16,Argentina,Algeria,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_02,2026-06-16,Austria,Jordan,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_03,2026-06-22,Argentina,Austria,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_04,2026-06-22,Jordan,Algeria,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_05,2026-06-27,Algeria,Austria,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_j_06,2026-06-27,Jordan,Argentina,J,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_01,2026-06-17,Portugal,DR Congo,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_02,2026-06-17,Uzbekistan,Colombia,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_03,2026-06-23,Portugal,Uzbekistan,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_04,2026-06-23,Colombia,DR Congo,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_05,2026-06-27,Colombia,Portugal,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_k_06,2026-06-27,DR Congo,Uzbekistan,K,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_01,2026-06-17,England,Croatia,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_02,2026-06-17,Ghana,Panama,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_03,2026-06-23,England,Ghana,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_04,2026-06-23,Panama,Croatia,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_05,2026-06-27,Panama,England,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18
+wc2026_group_l_06,2026-06-27,Croatia,Ghana,L,group,,,,,true,true,fifa_schedule_manual_entry,2026-06-18

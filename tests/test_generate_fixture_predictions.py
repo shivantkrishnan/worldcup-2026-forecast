@@ -83,6 +83,16 @@ def test_generated_probabilities_sum_to_one() -> None:
     assert np.isclose(probability_sum.iloc[0], 1.0)
 
 
+def test_past_fixture_dates_are_marked_backfilled() -> None:
+    predictions = generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_fixtures(),
+        generated_at="2026-06-13T00:00:00+00:00",
+    )
+
+    assert bool(predictions.loc[0, "is_backfilled"]) is True
+
+
 def test_optional_output_writing_only_happens_when_output_is_provided(
     tmp_path: Path,
     monkeypatch,
