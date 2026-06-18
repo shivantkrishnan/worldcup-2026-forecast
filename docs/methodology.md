@@ -122,7 +122,11 @@ The first forecast output layer trains this selected baseline in memory and prod
 
 Fixture prediction generation can print predictions or explicitly write `data/tournament/fixture_predictions_2026.csv` when requested. Written prediction rows include model/training metadata so later prediction audit can distinguish model version, training cutoff, and feature cutoff.
 
-The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. It samples `team_a_win`, `draw`, or `team_b_win`, awards points, and estimates group-winner/top-two/advancement probabilities. Because scorelines are not modeled yet, group ranking currently uses points, wins, and a seeded random tie-break placeholder rather than official goal-difference tie-break rules.
+Forecast outputs distinguish `pre_tournament`, `backfilled_ex_ante`, and `live` modes. `feature_cutoff_date` is mandatory metadata because it defines the information set used to build fixture features. Backfilled ex-ante predictions can reconstruct pre-tournament probabilities after the fact, but they are not the same as true timestamped live predictions.
+
+The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. When completed 2026 results are present in `results_2026.csv`, those matches are fixed in every run and only remaining matches are sampled. Completed 2026 results can update tournament state and live simulation state, but they cannot train the first baseline model.
+
+The simulator samples `team_a_win`, `draw`, or `team_b_win`, awards points, and estimates group-winner/top-two/advancement probabilities. Because scorelines are not modeled yet, group ranking currently uses points, wins, and a seeded random tie-break placeholder rather than official goal-difference tie-break rules.
 
 Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.
 

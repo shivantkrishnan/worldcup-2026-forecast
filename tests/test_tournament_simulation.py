@@ -111,6 +111,64 @@ def test_group_stage_simulation_awards_points_correctly() -> None:
     assert beta["losses"] == 1
 
 
+def test_completed_match_is_fixed_and_not_sampled() -> None:
+    fixtures = one_match_fixture()
+    fixtures["is_completed"] = True
+    fixtures["actual_result"] = "team_b_win"
+    fixtures["team_a_goals"] = 1
+    fixtures["team_b_goals"] = 2
+    rng = np.random.default_rng(42)
+
+    result = simulate_group_stage_once(fixtures, rng)
+
+    alpha = result.loc[result["team"].eq("Alpha")].iloc[0]
+    beta = result.loc[result["team"].eq("Beta")].iloc[0]
+    assert alpha["points"] == 0
+    assert alpha["losses"] == 1
+    assert alpha["goals_for"] == 1
+    assert alpha["goals_against"] == 2
+    assert beta["points"] == 3
+    assert beta["wins"] == 1
+    assert beta["goals_for"] == 2
+    assert beta["goals_against"] == 1
+
+
+def test_uncompleted_matches_are_still_sampled() -> None:
+    fixtures = pd.concat(
+        [
+            one_match_fixture().assign(
+                is_completed=True,
+                actual_result="team_b_win",
+                team_a_goals=0,
+                team_b_goals=1,
+            ),
+            pd.DataFrame(
+                [
+                    {
+                        "match_id": "m2",
+                        "group": "A",
+                        "team_a": "Gamma",
+                        "team_b": "Delta",
+                        "p_team_a_win": 1.0,
+                        "p_draw": 0.0,
+                        "p_team_b_win": 0.0,
+                        "is_completed": False,
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+    rng = np.random.default_rng(42)
+
+    result = simulate_group_stage_once(fixtures, rng)
+
+    beta = result.loc[result["team"].eq("Beta")].iloc[0]
+    gamma = result.loc[result["team"].eq("Gamma")].iloc[0]
+    assert beta["points"] == 3
+    assert gamma["points"] == 3
+
+
 def test_seeded_simulations_are_reproducible() -> None:
     fixtures = deterministic_two_group_fixtures()
 
@@ -177,9 +235,74 @@ def test_simulation_script_writes_no_files_by_default(
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
-    result = simulate_group_stage_main()
+    result = simulate_group_stage_main([])
     output = capsys.readouterr().out
 
     assert result == 0
     assert "No simulation files were written." in output
     assert list(tmp_path.iterdir()) == []
+
+
+def test_simulation_script_reports_backfilled_prediction_metadata(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    prediction_path = tmp_path / "data" / "tournament" / "fixture_predictions_2026.csv"
+    prediction_path.parent.mkdir(parents=True)
+    predictions = one_match_fixture()
+    predictions["forecast_mode"] = "backfilled_ex_ante"
+    predictions["is_backfilled"] = True
+    predictions.to_csv(prediction_path, index=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("scripts.simulate_group_stage.DEFAULT_SIMULATION_COUNT", 5)
+
+    result = simulate_group_stage_main([])
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "No results_2026.csv found" in output
+    assert "forecast_mode values: backfilled_ex_ante=1" in output
+    assert "backfilled rows: 1" in output
+    assert "fixed completed result rows: 0" in output
+    assert "completed matches sampled as predictions: yes" in output
+    assert "This simulation includes backfilled ex-ante predictions" in output
+
+
+def test_simulation_script_conditions_on_completed_results(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    prediction_path = tmp_path / "data" / "tournament" / "fixture_predictions_2026.csv"
+    result_path = tmp_path / "data" / "tournament" / "results_2026.csv"
+    prediction_path.parent.mkdir(parents=True)
+    predictions = one_match_fixture()
+    predictions["forecast_mode"] = "backfilled_ex_ante"
+    predictions["is_backfilled"] = True
+    predictions.to_csv(prediction_path, index=False)
+    pd.DataFrame(
+        [
+            {
+                "match_id": "m1",
+                "match_date": "2026-06-12",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+                "team_a_goals": 0,
+                "team_b_goals": 1,
+                "result": "team_b_win",
+                "status": "completed",
+            }
+        ]
+    ).to_csv(result_path, index=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("scripts.simulate_group_stage.DEFAULT_SIMULATION_COUNT", 5)
+
+    result = simulate_group_stage_main([])
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "Loaded completed results" in output
+    assert "fixed completed result rows: 1" in output
+    assert "backfilled rows still sampled: 0" in output
+    assert "completed matches sampled as predictions: no" in output

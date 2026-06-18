@@ -42,6 +42,30 @@ match_date <= feature_cutoff_date
 
 and still strictly before the fixture date.
 
+Every generated prediction row must carry a non-empty `feature_cutoff_date`.
+This makes the information set auditable after the fact: reviewers should be
+able to tell whether a row used only pre-tournament history, a later live-state
+cutoff, or some intentionally overridden diagnostic cutoff.
+
+## Forecast Modes
+
+Fixture predictions now use explicit forecast-mode metadata:
+
+- `pre_tournament`: uses the selected baseline trained through
+  `2026-06-10` and defaults fixture features to the same cutoff.
+- `backfilled_ex_ante`: reconstructs what the pre-tournament model would have
+  predicted, even if the file is generated later. Rows for fixture dates before
+  the generation date are marked `is_backfilled = true`.
+- `live`: reserved for forecasts that use completed 2026 results to update
+  tournament state and fixture features while still training the baseline only
+  through `2026-06-10`. Simulation can now use `results_2026.csv` to fix
+  completed matches, but the prediction-generation script remains guarded until
+  live fixture-feature updating is implemented. Backfilled rows are not silently
+  treated as true live predictions.
+
+The default mode is `backfilled_ex_ante` if prediction generation happens after
+any fixture date in the file; otherwise it is `pre_tournament`.
+
 ## 2026 World Cup Neutral Defaults
 
 For future 2026 World Cup fixtures, missing `neutral` or `is_neutral` values default to neutral. This prevents the selected historical home-adjustment parameter from being blindly applied to World Cup matches.
@@ -62,4 +86,13 @@ The simulator can later consume these probabilities directly for group-stage and
 
 The first simulator now consumes these probability rows for group-stage simulations. It samples the full 3-class distribution, not just the favorite, which lets draws affect group standings naturally.
 
+When `data/tournament/results_2026.csv` is available, the simulator fixes those
+completed outcomes and samples only remaining unplayed matches. This separates
+live tournament-state simulation from a backfilled ex-ante simulation that
+samples every row from reconstructed probabilities.
+
 `scripts/generate_fixture_predictions.py` can print predictions or, only when `--output` is supplied, write `data/tournament/fixture_predictions_2026.csv` for the simulation script. No model artifacts or processed feature files are written by default.
+
+`fixture_predictions_2026.csv` is a reproducible generated output. It should
+remain uncommitted unless the project defines a snapshot/versioning policy for
+prediction files.

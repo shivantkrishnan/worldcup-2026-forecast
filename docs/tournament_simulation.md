@@ -10,6 +10,39 @@ data/tournament/fixture_predictions_2026.csv
 
 That file is generated explicitly from the manually maintained fixture file and selected baseline model. If it is missing, the simulation script uses a synthetic example only for smoke testing.
 
+When available, completed results are loaded from:
+
+```text
+data/tournament/results_2026.csv
+```
+
+Completed result rows are fixed in every simulation run. They are not sampled
+from prediction probabilities.
+
+The simulator now prints forecast-mode metadata from the prediction file:
+
+- forecast mode values present,
+- number of `is_backfilled` rows,
+- whether past/completed fixture rows are being sampled as predictions.
+
+If backfilled rows are present, the run is not a true live simulation. It is a
+simulation over reconstructed ex-ante probabilities unless completed 2026
+results are fixed from `data/tournament/results_2026.csv`.
+
+## Backfilled vs Live Simulation
+
+A backfilled ex-ante simulation samples every fixture from reconstructed
+probabilities, including matches whose calendar dates have already passed.
+That is useful for methodology and demos, but it is not a true live state.
+
+A true live group-stage simulation combines:
+
+- fixed completed results from `results_2026.csv`,
+- generated probabilities from `fixture_predictions_2026.csv` for remaining matches.
+
+The current live simulation still uses simplified group ranking because
+scoreline/GD simulation and official tie-break rules are future work.
+
 ## Why Fixture Probabilities Feed Simulation
 
 Tournament outcomes are paths through many uncertain matches. A deterministic favorite list cannot represent that uncertainty. Fixture probabilities let the simulator sample many plausible group-stage worlds and count how often each team wins its group, finishes in the top two, or advances.
@@ -72,7 +105,6 @@ Implemented:
 
 Not implemented yet:
 
-- Official 2026 group structure and completed fixture file.
 - Scoreline or goal-difference simulation.
 - Official FIFA tie-break rules.
 - Knockout bracket simulation.
@@ -85,6 +117,7 @@ Next steps before a complete tournament simulator:
 
 - Add or maintain real 2026 fixtures at `data/tournament/fixtures_2026.csv`.
 - Generate real fixture predictions at `data/tournament/fixture_predictions_2026.csv`.
+- Maintain completed 2026 results in `data/tournament/results_2026.csv`.
 - Add a scoreline or goal-difference model.
 - Implement official group tie-break rules.
 - Build knockout bracket simulation.

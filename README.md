@@ -116,7 +116,15 @@ python scripts/generate_fixture_predictions.py
 This requires `data/tournament/fixtures_2026.csv`. By default it prints predictions only. To write the simulation input explicitly:
 
 ```bash
-python scripts/generate_fixture_predictions.py --output data/tournament/fixture_predictions_2026.csv
+python scripts/generate_fixture_predictions.py --forecast-mode backfilled_ex_ante --output data/tournament/fixture_predictions_2026.csv
+```
+
+Prediction rows include `forecast_mode`, `prediction_generated_at`, `training_cutoff_date`, non-empty `feature_cutoff_date`, model labels, and `is_backfilled`. Backfilled ex-ante predictions are useful for reconstruction and demos, but they are not true live predictions.
+
+Audit generated fixture predictions:
+
+```bash
+python scripts/audit_fixture_predictions.py
 ```
 
 Run a group-stage Monte Carlo simulation:
@@ -125,7 +133,15 @@ Run a group-stage Monte Carlo simulation:
 python scripts/simulate_group_stage.py
 ```
 
-The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It prints advancement probabilities and does not write simulation files by default.
+The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It prints forecast-mode/backfilled-row metadata, advancement probabilities, and does not write simulation files by default.
+
+If `data/tournament/results_2026.csv` exists, the simulator validates it and
+fixes completed matches before sampling the remaining fixtures. For a diagnostic
+probability-only run, use:
+
+```bash
+python scripts/simulate_group_stage.py --ignore-results
+```
 
 Methodology and project decisions are tracked continuously in:
 
@@ -144,6 +160,9 @@ The current baseline selection is summarized in `docs/model_selection_report.md`
 The scheduled-fixture forecast output design is documented in `docs/forecast_output_design.md`.
 The group-stage simulation design is documented in `docs/tournament_simulation.md`.
 Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
+
+Forecast mode semantics are documented in `docs/forecast_output_design.md`. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
+Completed-result ingestion is documented in `docs/tournament_data_ingestion.md` and `docs/results_2026_template.md`.
 
 ## Project Status / Roadmap
 

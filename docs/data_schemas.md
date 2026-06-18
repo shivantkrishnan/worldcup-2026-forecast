@@ -50,6 +50,21 @@ One row per completed or partially known 2026 World Cup result.
 | `went_to_penalties` | boolean | Whether the match went to penalties. |
 | `team_a_penalties` | integer | Team A penalty shootout goals, blank if no shootout. |
 | `team_b_penalties` | integer | Team B penalty shootout goals, blank if no shootout. |
+| `source` | string | Optional source note for manually maintained rows. |
+| `last_updated` | date/timestamp | Optional manual maintenance timestamp. |
+
+Validation rules:
+
+- `match_id` must be unique.
+- `match_date` must parse as a date.
+- `team_a` and `team_b` must be non-null and different.
+- `status` currently supports `completed`.
+- Completed rows must have integer `team_a_goals` and `team_b_goals`.
+- `result` must be one of `team_a_win`, `draw`, or `team_b_win`.
+- `result` must agree with the listed scoreline.
+- Results must join to fixtures or fixture predictions by `match_id`.
+- `team_a`/`team_b` orientation must match the fixture row.
+- Completed 2026 World Cup results may update tournament state and live simulations, but they cannot train the first baseline model.
 
 ## `data/predictions/prediction_log.csv`
 

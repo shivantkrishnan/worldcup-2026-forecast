@@ -456,3 +456,47 @@ The project needs real scheduled fixtures for prediction and simulation, but scr
 ### Implications for Modeling/Product
 
 Fixture data remains separate from historical model training data. Predictions are generated from the selected baseline without retraining on 2026 World Cup matches. The generator prints predictions by default and writes `fixture_predictions_2026.csv` only when `--output` is explicitly provided.
+
+## 2026-06-18
+
+### Decision
+
+Make forecast-mode semantics explicit in fixture prediction metadata.
+
+### Rationale
+
+The project can now generate real fixture predictions after some 2026 group
+matches have dated past. Without explicit mode metadata, backfilled ex-ante
+probabilities could be mistaken for true pre-match or live forecasts.
+
+### Implications for Modeling/Product
+
+Generated prediction rows now carry `forecast_mode`, non-empty
+`feature_cutoff_date`, `prediction_generated_at`, training cutoff, model label,
+and `is_backfilled`. `pre_tournament` and `backfilled_ex_ante` default fixture
+features to the `2026-06-10` training cutoff. `live` prediction generation
+remains guarded until fixture-feature updating from `results_2026.csv` is
+implemented. A simulation over backfilled rows should be described as
+reconstructed ex-ante, not as a true live simulation.
+
+## 2026-06-18
+
+### Decision
+
+Add manually maintained `results_2026.csv` conditioning for live group-stage
+simulation.
+
+### Rationale
+
+Once matches have been completed, a live tournament simulation should not
+resample those rows from old prediction probabilities. It should fix the actual
+result and propagate uncertainty only through remaining fixtures.
+
+### Implications for Modeling/Product
+
+`results_2026.csv` is validated separately from fixtures and predictions.
+Completed results must join by `match_id` and preserve `team_a`/`team_b`
+orientation. The simulator fixes completed results when the file exists and
+continues to sample remaining fixtures from prediction probabilities. These
+completed 2026 results update tournament state only; they do not retrain the
+first baseline model.

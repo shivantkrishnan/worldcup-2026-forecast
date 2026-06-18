@@ -21,6 +21,8 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Scheduled-fixture forecast output layer.
 - First group-stage Monte Carlo simulation layer.
 - Manually maintained 2026 fixture ingestion and prediction-generation plumbing.
+- Explicit pre-tournament, backfilled ex-ante, and guarded live forecast metadata.
+- Manually maintained completed-result ingestion for live group-stage simulation conditioning.
 
 ## Current Selected Baseline
 
@@ -49,6 +51,8 @@ After each variant:
 
 - Fill `data/tournament/fixtures_2026.csv` with manually maintained official fixture rows.
 - Generate `data/tournament/fixture_predictions_2026.csv` for known fixtures.
+- Maintain `data/tournament/results_2026.csv` so live simulations fix completed matches instead of sampling backfilled predictions.
+- Add live fixture-feature updating from completed 2026 results without retraining the baseline.
 - Extend Monte Carlo simulation from group-stage only to knockout brackets.
 - Output group qualification, knockout advancement, finalist, and champion probabilities.
 - Distinguish pre-tournament, live, and backfilled forecasts.
@@ -78,3 +82,4 @@ After each variant:
 - Live API ingestion.
 - Final production deployment.
 - Model artifacts written by default.
+- Generated prediction snapshots committed by default.

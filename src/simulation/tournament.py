@@ -13,6 +13,8 @@ OUTCOME_TEAM_B_WIN = "team_b_win"
 VALID_OUTCOMES = [OUTCOME_TEAM_A_WIN, OUTCOME_DRAW, OUTCOME_TEAM_B_WIN]
 PROBABILITY_COLUMNS = ["p_team_a_win", "p_draw", "p_team_b_win"]
 REQUIRED_COLUMNS = {"match_id", "group", "team_a", "team_b", *PROBABILITY_COLUMNS}
+COMPLETED_COLUMN = "is_completed"
+ACTUAL_RESULT_COLUMN = "actual_result"
 SUMMARY_COLUMNS = [
     "team",
     "group",
@@ -54,11 +56,69 @@ def validate_fixture_probability_table(fixtures: pd.DataFrame) -> pd.DataFrame:
     if invalid_sum.any():
         raise ValueError("Fixture probabilities must sum to 1 for every match.")
 
+    if COMPLETED_COLUMN in validated.columns:
+        validated[COMPLETED_COLUMN] = validated[COMPLETED_COLUMN].map(_coerce_bool)
+        completed = validated[COMPLETED_COLUMN]
+        if completed.any():
+            if ACTUAL_RESULT_COLUMN not in validated.columns:
+                raise ValueError(
+                    "Completed fixture rows require an actual_result column."
+                )
+            missing_actual = completed & validated[ACTUAL_RESULT_COLUMN].isna()
+            if missing_actual.any():
+                raise ValueError(
+                    "Completed fixture rows require non-null actual_result values."
+                )
+            invalid_actual = completed & ~validated[ACTUAL_RESULT_COLUMN].isin(
+                VALID_OUTCOMES
+            )
+            if invalid_actual.any():
+                raise ValueError(
+                    "actual_result must be one of: " + ", ".join(VALID_OUTCOMES)
+                )
+
+            for column in ["team_a_goals", "team_b_goals"]:
+                if column not in validated.columns:
+                    raise ValueError(
+                        f"Completed fixture rows require a {column} column."
+                    )
+                validated[column] = pd.to_numeric(
+                    validated[column],
+                    errors="coerce",
+                )
+                missing_scores = completed & validated[column].isna()
+                if missing_scores.any():
+                    raise ValueError(
+                        f"Completed fixture rows require non-null {column}."
+                    )
+
     return validated
+
+
+def _coerce_bool(value: object) -> bool:
+    """Coerce common boolean values from CSV-backed prediction tables."""
+    if isinstance(value, bool):
+        return value
+    if pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return False
+
+
+def _row_is_completed(row: pd.Series) -> bool:
+    """Return whether a fixture row has a fixed completed result."""
+    if COMPLETED_COLUMN not in row.index:
+        return False
+    return _coerce_bool(row[COMPLETED_COLUMN])
 
 
 def sample_match_outcome(row: pd.Series, rng: np.random.Generator) -> str:
     """Sample one W/D/L outcome from fixture probabilities."""
+    if _row_is_completed(row):
+        return str(row[ACTUAL_RESULT_COLUMN])
     probabilities = row[PROBABILITY_COLUMNS].astype(float).to_numpy()
     return str(rng.choice(VALID_OUTCOMES, p=probabilities))
 
@@ -92,6 +152,8 @@ def _add_team_result(
     win: int,
     draw: int,
     loss: int,
+    goals_for: int = 0,
+    goals_against: int = 0,
 ) -> None:
     """Mutate one simulation table row with a sampled result."""
     mask = table["group"].eq(group) & table["team"].eq(team)
@@ -99,6 +161,17 @@ def _add_team_result(
     table.loc[mask, "wins"] += win
     table.loc[mask, "draws"] += draw
     table.loc[mask, "losses"] += loss
+    table.loc[mask, "goals_for"] += goals_for
+    table.loc[mask, "goals_against"] += goals_against
+
+
+def _completed_score(row: pd.Series) -> tuple[int, int]:
+    """Return completed goals when present, otherwise placeholder zeros."""
+    if not _row_is_completed(row):
+        return 0, 0
+    if "team_a_goals" not in row.index or "team_b_goals" not in row.index:
+        return 0, 0
+    return int(row["team_a_goals"]), int(row["team_b_goals"])
 
 
 def rank_group_table(
@@ -169,16 +242,77 @@ def simulate_group_stage_once(
         group = row["group"]
         team_a = row["team_a"]
         team_b = row["team_b"]
+        team_a_goals, team_b_goals = _completed_score(row)
 
         if outcome == OUTCOME_TEAM_A_WIN:
-            _add_team_result(table, group, team_a, points_for_win, 1, 0, 0)
-            _add_team_result(table, group, team_b, 0, 0, 0, 1)
+            _add_team_result(
+                table,
+                group,
+                team_a,
+                points_for_win,
+                1,
+                0,
+                0,
+                goals_for=team_a_goals,
+                goals_against=team_b_goals,
+            )
+            _add_team_result(
+                table,
+                group,
+                team_b,
+                0,
+                0,
+                0,
+                1,
+                goals_for=team_b_goals,
+                goals_against=team_a_goals,
+            )
         elif outcome == OUTCOME_TEAM_B_WIN:
-            _add_team_result(table, group, team_a, 0, 0, 0, 1)
-            _add_team_result(table, group, team_b, points_for_win, 1, 0, 0)
+            _add_team_result(
+                table,
+                group,
+                team_a,
+                0,
+                0,
+                0,
+                1,
+                goals_for=team_a_goals,
+                goals_against=team_b_goals,
+            )
+            _add_team_result(
+                table,
+                group,
+                team_b,
+                points_for_win,
+                1,
+                0,
+                0,
+                goals_for=team_b_goals,
+                goals_against=team_a_goals,
+            )
         else:
-            _add_team_result(table, group, team_a, points_for_draw, 0, 1, 0)
-            _add_team_result(table, group, team_b, points_for_draw, 0, 1, 0)
+            _add_team_result(
+                table,
+                group,
+                team_a,
+                points_for_draw,
+                0,
+                1,
+                0,
+                goals_for=team_a_goals,
+                goals_against=team_b_goals,
+            )
+            _add_team_result(
+                table,
+                group,
+                team_b,
+                points_for_draw,
+                0,
+                1,
+                0,
+                goals_for=team_b_goals,
+                goals_against=team_a_goals,
+            )
 
     ranked_groups = [
         rank_group_table(
