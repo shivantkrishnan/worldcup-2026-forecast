@@ -64,25 +64,33 @@ def _inject_styles() -> None:
             max-width: 1320px;
         }
         div[data-testid="stMetric"] {
-            background: #ffffff;
-            border: 1px solid #e6e8eb;
+            background: rgba(128, 128, 128, 0.08);
+            background: var(--secondary-background-color, rgba(128, 128, 128, 0.08));
+            color: inherit;
+            color: var(--text-color, inherit);
+            border: 1px solid rgba(128, 128, 128, 0.28);
             border-radius: 8px;
             padding: 0.85rem 0.9rem;
-            box-shadow: 0 1px 2px rgba(12, 18, 28, 0.04);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
         }
         .status-banner {
-            border: 1px solid #d8e8de;
-            background: #f3faf5;
-            color: #173b25;
+            border: 1px solid rgba(70, 140, 92, 0.45);
+            border-left: 4px solid #4b9462;
+            background: rgba(70, 140, 92, 0.10);
+            color: inherit;
+            color: var(--text-color, inherit);
             border-radius: 8px;
             padding: 0.95rem 1rem;
             margin: 0.6rem 0 1.1rem 0;
         }
         .method-card {
-            border: 1px solid #e6e8eb;
+            border: 1px solid rgba(128, 128, 128, 0.28);
             border-radius: 8px;
             padding: 1rem 1.1rem;
-            background: #ffffff;
+            background: rgba(128, 128, 128, 0.08);
+            background: var(--secondary-background-color, rgba(128, 128, 128, 0.08));
+            color: inherit;
+            color: var(--text-color, inherit);
             margin-bottom: 0.8rem;
         }
         .method-card h3 {
@@ -93,13 +101,16 @@ def _inject_styles() -> None:
             margin-bottom: 0;
         }
         .method-cta {
-            border-color: #cbd9ee;
-            background: #f7faff;
+            border-color: rgba(80, 130, 190, 0.42);
+            background: rgba(80, 130, 190, 0.10);
+            color: inherit;
+            color: var(--text-color, inherit);
         }
         .methodology-article {
             max-width: 920px;
             line-height: 1.68;
-            color: #182230;
+            color: inherit;
+            color: var(--text-color, inherit);
         }
         .methodology-article h2 {
             margin-top: 2rem;
@@ -112,7 +123,9 @@ def _inject_styles() -> None:
         }
         .methodology-callout {
             border-left: 4px solid #355f8d;
-            background: #f7faff;
+            background: rgba(80, 130, 190, 0.10);
+            color: inherit;
+            color: var(--text-color, inherit);
             padding: 0.85rem 1rem;
             margin: 1rem 0 1.25rem 0;
             border-radius: 0 8px 8px 0;
@@ -121,19 +134,23 @@ def _inject_styles() -> None:
             margin-bottom: 0;
         }
         .small-muted {
-            color: #5d6673;
+            color: inherit;
+            color: var(--text-color, inherit);
             font-size: 0.92rem;
+            opacity: 0.72;
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] label {
-            border: 1px solid #e4e8ee;
+            border: 1px solid rgba(128, 128, 128, 0.28);
             border-radius: 8px;
             padding: 0.25rem 0.35rem;
             margin-bottom: 0.25rem;
-            background: #ffffff;
+            background: rgba(128, 128, 128, 0.08);
+            background: var(--secondary-background-color, rgba(128, 128, 128, 0.08));
+            color: inherit;
+            color: var(--text-color, inherit);
         }
         section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
-            border-color: #b9c8dc;
-            background: #f7faff;
+            border-color: rgba(80, 130, 190, 0.55);
         }
         </style>
         """,
