@@ -87,6 +87,12 @@ the fact and are not true live predictions.
 Only scheduled matches without completed results should be displayed as current
 predictions.
 
+The Streamlit dashboard consumes the display-safe match table directly. Its
+matches, groups, and team views therefore inherit the same guardrail:
+completed rows show score/status first, scheduled rows show W/D/L
+probabilities, and completed-match probabilities appear only when the user
+opens an audit-oriented context.
+
 ## Live Fixture-Feature Updating
 
 Live prediction generation uses two separate match histories:

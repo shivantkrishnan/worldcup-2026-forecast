@@ -129,6 +129,10 @@ audit rows. Once a completed result exists, the match is displayed as an actual
 result; any model probabilities attached to that match belong to prediction
 audit language, not live or future-prediction language.
 
+The Streamlit dashboard is intentionally consumer-facing: it emphasizes
+advancement probabilities, group state, team-level outlooks, and clear status
+language before exposing deeper audit or methodology details.
+
 Live fixture-feature updating preserves the training boundary. Completed 2026
 World Cup results may be appended to the completed-match history used to build
 remaining-fixture rolling form and Elo features through an explicit live feature

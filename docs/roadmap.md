@@ -28,6 +28,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Official-style group and best-third-place ranking helpers.
 - Display-status guardrail separating completed results, scheduled predictions, and audit probabilities.
 - Live remaining-fixture prediction generation using completed 2026 results for feature state only.
+- Consumer-facing Streamlit dashboard with overview, group, match, team, simulation, and methodology views.
 
 ## Current Selected Baseline
 
@@ -65,7 +66,7 @@ After each variant:
 
 ## Product/UI Roadmap
 
-- Streamlit match predictor.
+- Continue polishing the Streamlit dashboard around real fan workflows.
 - Consume the display-status table so completed matches show actual scores and predictions for completed matches appear only in audit context.
 - Display favorite plus full 3-class probabilities.
 - Show model caveats and selected baseline summary.

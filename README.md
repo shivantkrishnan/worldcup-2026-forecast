@@ -72,7 +72,30 @@ pytest
 Run the Streamlit app:
 
 ```bash
-python -m streamlit run app/streamlit_app.py
+.venv/bin/streamlit run app/streamlit_app.py
+```
+
+The real dashboard entrypoint is `app/streamlit_app.py`. The top-right
+Streamlit Deploy button is optional and is not needed for local use.
+
+The dashboard expects:
+
+```text
+data/tournament/fixtures_2026.csv
+data/tournament/results_2026.csv
+data/tournament/fixture_predictions_2026_live.csv
+```
+
+For the public Streamlit demo, `fixture_predictions_2026_live.csv` is committed
+as a small reproducible snapshot so the deployed app can run without local
+prediction generation. See `docs/prediction_snapshot_policy.md`.
+
+If the live prediction file is missing, the app falls back to
+`data/tournament/fixture_predictions_2026.csv` with a warning. Generate live
+predictions before launch with:
+
+```bash
+python scripts/generate_fixture_predictions.py --forecast-mode live --results data/tournament/results_2026.csv --output data/tournament/fixture_predictions_2026_live.csv
 ```
 
 Run the historical data audit:
@@ -194,8 +217,26 @@ The scheduled-fixture forecast output design is documented in `docs/forecast_out
 The group-stage simulation design is documented in `docs/tournament_simulation.md`.
 Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
 
-Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files, including live prediction files, should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
+Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined. The public demo snapshot policy is documented in `docs/prediction_snapshot_policy.md`.
 Completed-result ingestion is documented in `docs/tournament_data_ingestion.md` and `docs/results_2026_template.md`.
+
+The Streamlit dashboard presents completed matches as actual results, scheduled
+matches as current predictions, team and group views, live simulation outputs,
+and a methodology section for non-technical and technical readers.
+
+## Public Streamlit Deployment
+
+Use Streamlit Community Cloud with:
+
+```text
+Repository: shivantkrishnan/worldcup-2026-forecast
+Branch: main
+App file: app/streamlit_app.py
+```
+
+The public deployment uses committed tournament-state/demo files under
+`data/tournament/`. Raw historical training data remains uncommitted and is not
+required for the deployed app to start.
 
 ## Project Status / Roadmap
 
@@ -216,7 +257,7 @@ Use module commands from inside the project venv so Python, pip, and Streamlit a
 ```bash
 which python
 python -m pip --version
-python -m streamlit run app/streamlit_app.py
+.venv/bin/streamlit run app/streamlit_app.py
 ```
 
 ## Data Policy

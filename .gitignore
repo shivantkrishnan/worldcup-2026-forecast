@@ -23,6 +23,7 @@ env/
 # Data
 data/raw/*
 data/processed/*
+data/tournament/fixture_predictions_2026.csv
 !data/raw/.gitkeep
 !data/raw/README.md
 !data/processed/.gitkeep
