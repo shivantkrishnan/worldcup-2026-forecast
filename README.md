@@ -127,6 +127,16 @@ Audit generated fixture predictions:
 python scripts/audit_fixture_predictions.py
 ```
 
+Ingest completed group-stage results from FIFA's official public API and write
+the live-state result file:
+
+```bash
+python scripts/ingest_official_results_2026.py --to-date 2026-06-19 --output data/tournament/results_2026.csv
+```
+
+Only verified completed results should be written. Unmapped or unverifiable rows
+are omitted rather than guessed.
+
 Run a group-stage Monte Carlo simulation:
 
 ```bash

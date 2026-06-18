@@ -500,3 +500,23 @@ orientation. The simulator fixes completed results when the file exists and
 continues to sample remaining fixtures from prediction probabilities. These
 completed 2026 results update tournament state only; they do not retrain the
 first baseline model.
+
+## 2026-06-18
+
+### Decision
+
+Add an official-source ingestion helper for completed 2026 group-stage results.
+
+### Rationale
+
+Live simulation should use verified completed results, not hand-entered guesses.
+The FIFA public calendar API exposes completed match scores and FIFA match IDs,
+but names and dates still need local mapping to the project's fixture schema.
+
+### Implications for Modeling/Product
+
+`scripts/ingest_official_results_2026.py` fetches FIFA data, maps aliases such
+as `Korea Republic`, `Czechia`, `Congo DR`, and `Cabo Verde`, preserves local
+fixture orientation, validates the output, and writes `results_2026.csv`.
+Rows that cannot be verified or mapped are omitted and reported. The resulting
+file is small tournament-state input and remains excluded from model training.

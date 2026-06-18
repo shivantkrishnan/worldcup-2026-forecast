@@ -43,6 +43,11 @@ A true live group-stage simulation combines:
 The current live simulation still uses simplified group ranking because
 scoreline/GD simulation and official tie-break rules are future work.
 
+`results_2026.csv` should be maintained from official or clearly
+source-attributed completed results. The current ingestion helper uses FIFA's
+official public calendar API and omits any row that cannot be mapped safely to
+the local fixture orientation.
+
 ## Why Fixture Probabilities Feed Simulation
 
 Tournament outcomes are paths through many uncertain matches. A deterministic favorite list cannot represent that uncertainty. Fixture probabilities let the simulator sample many plausible group-stage worlds and count how often each team wins its group, finishes in the top two, or advances.

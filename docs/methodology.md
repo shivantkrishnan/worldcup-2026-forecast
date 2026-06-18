@@ -126,6 +126,8 @@ Forecast outputs distinguish `pre_tournament`, `backfilled_ex_ante`, and `live` 
 
 The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. When completed 2026 results are present in `results_2026.csv`, those matches are fixed in every run and only remaining matches are sampled. Completed 2026 results can update tournament state and live simulation state, but they cannot train the first baseline model.
 
+Completed 2026 results should come from official or clearly source-attributed sources. Unverified results are omitted rather than inferred, because a wrong fixed result is more damaging to live simulation state than a missing one.
+
 The simulator samples `team_a_win`, `draw`, or `team_b_win`, awards points, and estimates group-winner/top-two/advancement probabilities. Because scorelines are not modeled yet, group ranking currently uses points, wins, and a seeded random tie-break placeholder rather than official goal-difference tie-break rules.
 
 Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.

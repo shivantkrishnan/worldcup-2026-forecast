@@ -62,6 +62,18 @@ Optional fields include extra-time, penalty, source, and maintenance metadata. S
 
 Results must join to fixtures or fixture predictions by `match_id`, and `team_a`/`team_b` orientation must match the fixture row exactly.
 
+Completed results can be ingested from FIFA's official public calendar API with:
+
+```bash
+python scripts/ingest_official_results_2026.py --to-date 2026-06-19 --output data/tournament/results_2026.csv
+```
+
+The script maps FIFA names to local fixture names, preserves the local
+`team_a`/`team_b` orientation, validates the written file, and reports omitted
+or unmapped rows. Missing or unverifiable results should be omitted, not guessed.
+The resulting file is tournament-state input for standings, simulation
+conditioning, and audit only; it is not baseline training data.
+
 ## Validation Rules
 
 The ingestion layer validates that:
