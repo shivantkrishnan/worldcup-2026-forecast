@@ -93,6 +93,8 @@ def _single_ece(result: dict[str, object]) -> float:
 def evaluate_feature_set(
     baseline_matches: pd.DataFrame,
     include_elo: bool,
+    elo_k_factor: float = 20.0,
+    elo_home_advantage: float = 0.0,
     windows: tuple[int, ...] = (5, 10),
     test_start_date: str = "2022-01-01",
     initial_train_end_date: str = "2014-12-31",
@@ -106,6 +108,8 @@ def evaluate_feature_set(
         matches,
         windows=windows,
         include_elo=include_elo,
+        elo_k_factor=elo_k_factor,
+        elo_home_advantage=elo_home_advantage,
     )
     audit = audit_feature_readiness(features, test_start_date=test_start_date)
     single_holdout = train_baseline_model(

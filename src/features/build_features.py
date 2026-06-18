@@ -16,6 +16,7 @@ def build_match_features(
     include_elo: bool = False,
     initial_elo_rating: float = 1500.0,
     elo_k_factor: float = 20.0,
+    elo_home_advantage: float = 0.0,
 ) -> pd.DataFrame:
     """Return leakage-safe match-level features for modeling."""
     return build_modeling_features(
@@ -24,6 +25,7 @@ def build_match_features(
         include_elo=include_elo,
         initial_elo_rating=initial_elo_rating,
         elo_k_factor=elo_k_factor,
+        elo_home_advantage=elo_home_advantage,
     )
 
 
@@ -33,6 +35,7 @@ def build_modeling_features(
     include_elo: bool = False,
     initial_elo_rating: float = 1500.0,
     elo_k_factor: float = 20.0,
+    elo_home_advantage: float = 0.0,
 ) -> pd.DataFrame:
     """Return leakage-safe model features, optionally including Elo features."""
     features = build_match_level_features(results, windows=windows)
@@ -43,6 +46,7 @@ def build_modeling_features(
         results,
         initial_rating=initial_elo_rating,
         k_factor=elo_k_factor,
+        home_advantage=elo_home_advantage,
     )
     return features.merge(
         elo_features[["match_id", *ELO_FEATURE_COLUMNS]],

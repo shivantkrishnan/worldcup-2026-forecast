@@ -29,15 +29,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Include leakage-safe pre-match Elo features.",
     )
+    parser.add_argument(
+        "--elo-k-factor",
+        type=float,
+        default=20.0,
+        help="Elo K-factor when --include-elo is used.",
+    )
+    parser.add_argument(
+        "--elo-home-advantage",
+        type=float,
+        default=0.0,
+        help="Team A home-rating bonus for non-neutral matches when --include-elo is used.",
+    )
     return parser.parse_args(argv)
 
 
 def build_features_for_training(
     baseline_matches,
     include_elo: bool = False,
+    elo_k_factor: float = 20.0,
+    elo_home_advantage: float = 0.0,
 ):
     """Build the feature table used by this training script."""
-    return build_modeling_features(baseline_matches, include_elo=include_elo)
+    return build_modeling_features(
+        baseline_matches,
+        include_elo=include_elo,
+        elo_k_factor=elo_k_factor,
+        elo_home_advantage=elo_home_advantage,
+    )
 
 
 def _print_distribution(title: str, distribution: dict[str, int]) -> None:
@@ -70,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     features = build_features_for_training(
         baseline_matches,
         include_elo=args.include_elo,
+        elo_k_factor=args.elo_k_factor,
+        elo_home_advantage=args.elo_home_advantage,
     )
     readiness_report = audit_feature_readiness(features)
     result = train_baseline_model(features)
@@ -78,6 +99,9 @@ def main(argv: list[str] | None = None) -> int:
     print("\nBaseline Model Training")
     print("=======================")
     print(f"include_elo: {args.include_elo}")
+    if args.include_elo:
+        print(f"elo_k_factor: {args.elo_k_factor:g}")
+        print(f"elo_home_advantage: {args.elo_home_advantage:g}")
     print(f"feature_count: {len(result['feature_columns'])}")
     print(f"train_row_count: {result['train_row_count']:,}")
     print(f"test_row_count: {result['test_row_count']:,}")

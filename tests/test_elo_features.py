@@ -56,6 +56,13 @@ def test_update_elo_pair_increases_winner_and_decreases_loser() -> None:
     assert updated_b < 1500.0
 
 
+def test_k_factor_changes_update_magnitude() -> None:
+    low_k_a, _ = update_elo_pair(1500.0, 1500.0, score_a=1.0, k_factor=10.0)
+    high_k_a, _ = update_elo_pair(1500.0, 1500.0, score_a=1.0, k_factor=30.0)
+
+    assert high_k_a - 1500.0 > low_k_a - 1500.0
+
+
 def test_draw_updates_ratings_toward_each_other() -> None:
     updated_a, updated_b = update_elo_pair(1600.0, 1400.0, score_a=0.5)
 
@@ -70,6 +77,8 @@ def test_first_match_for_unseen_teams_uses_initial_rating() -> None:
     assert first_match["elo_team_a_pre"] == 1500.0
     assert first_match["elo_team_b_pre"] == 1500.0
     assert first_match["elo_expected_score_team_a"] == 0.5
+    assert first_match["elo_effective_diff_team_a_minus_team_b"] == 0.0
+    assert first_match["elo_home_advantage_applied"] == 0.0
     assert first_match["elo_matches_before_team_a"] == 0
     assert first_match["elo_matches_before_team_b"] == 0
 
@@ -101,6 +110,36 @@ def test_same_date_matches_are_emitted_before_same_date_updates() -> None:
     assert second_same_date_match["elo_team_b_pre"] == 1500.0
     assert second_same_date_match["elo_matches_before_team_a"] == 0
     assert second_same_date_match["elo_matches_before_team_b"] == 0
+
+
+def test_home_advantage_changes_expected_score_on_non_neutral_match() -> None:
+    features = build_elo_features(make_canonical_matches(), home_advantage=100.0)
+    first_match = features.loc[features["match_id"] == "m1"].iloc[0]
+
+    assert first_match["elo_home_advantage_applied"] == 100.0
+    assert first_match["elo_effective_diff_team_a_minus_team_b"] == 100.0
+    assert first_match["elo_expected_score_team_a"] > 0.5
+
+
+def test_home_advantage_does_not_apply_on_neutral_match() -> None:
+    canonical = make_canonical_matches()
+    canonical.loc[0, "is_neutral"] = True
+    canonical.loc[0, "neutral"] = True
+
+    features = build_elo_features(canonical, home_advantage=100.0)
+    first_match = features.loc[features["match_id"] == "m1"].iloc[0]
+
+    assert first_match["elo_home_advantage_applied"] == 0.0
+    assert first_match["elo_effective_diff_team_a_minus_team_b"] == 0.0
+    assert first_match["elo_expected_score_team_a"] == 0.5
+
+
+def test_home_advantage_does_not_mutate_underlying_pre_match_rating() -> None:
+    features = build_elo_features(make_canonical_matches(), home_advantage=100.0)
+    first_match = features.loc[features["match_id"] == "m1"].iloc[0]
+
+    assert first_match["elo_team_a_pre"] == 1500.0
+    assert first_match["elo_team_b_pre"] == 1500.0
 
 
 def test_elo_output_has_one_row_per_input_match() -> None:
@@ -141,3 +180,16 @@ def test_build_modeling_features_can_optionally_include_elo_features() -> None:
 
     for column in ELO_FEATURE_COLUMNS:
         assert column in features.columns
+
+
+def test_build_modeling_features_can_pass_elo_parameters() -> None:
+    features = build_modeling_features(
+        make_canonical_matches(),
+        windows=(2,),
+        include_elo=True,
+        elo_k_factor=30.0,
+        elo_home_advantage=75.0,
+    )
+    first_match = features.loc[features["match_id"] == "m1"].iloc[0]
+
+    assert first_match["elo_home_advantage_applied"] == 75.0

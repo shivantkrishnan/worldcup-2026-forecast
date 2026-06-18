@@ -84,6 +84,8 @@ The first team-form feature layer transforms canonical matches into a long team-
 
 The second team-level feature family is Elo-style team strength. Elo ratings are opponent-adjusted pre-match state variables. Ratings are emitted before updating with the current result, and when only date-level timestamps are available, updates are applied after the full date block so same-date results cannot leak into same-date features.
 
+Elo variants may adjust expected score with a temporary home-advantage term for non-neutral matches. The home term affects only the match-level expected score and update calculation; it does not permanently inflate the team's underlying rating. Neutral-site matches receive no home bonus unless a separate host or venue model is introduced later.
+
 Initial features should be simple and interpretable before adding complexity. Each new feature group should be justified by football intuition and tested by whether it improves probabilistic forecast quality.
 
 Feature readiness is audited before baseline training. The audit uses the same time-aware split philosophy as model validation and reports target balance, feature missingness, high-missingness features, fully missing features, and excluded non-numeric feature candidates.
@@ -108,9 +110,11 @@ Rolling-origin backtests refit preprocessing, imputation, scaling, logistic regr
 
 Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected model family. The selected feature set now includes leakage-safe rolling team-form plus pre-match Elo features.
 
-Selection is based primarily on rolling-origin log loss stability. Adding Elo improves the selected model's rolling-origin mean log loss from `1.201547` to `1.197716` and improves log loss in 5 of 6 rolling-origin windows.
+Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.
 
-This selection is provisional. Expected calibration error does not consistently improve, and Elo worsens mean ECE, so calibration caveats remain part of any dashboard or report language.
+K=10 is interpreted as an empirically selected smoothing parameter for sparse, noisy international football results, with rolling form features carrying more of the short-run momentum signal.
+
+This selection is provisional. Expected calibration error does not consistently improve, and the selected K/home variant worsens mean ECE versus simple Elo, so calibration caveats remain part of any dashboard or report language.
 
 ## Calibration and Uncertainty
 
@@ -158,7 +162,7 @@ Current limitations:
 - Missing feature values are handled by median imputation plus missingness indicators in the baseline pipeline.
 - Calibration diagnostics and the first sigmoid-calibrated logistic comparison are available.
 - Rolling-origin backtesting is available for baseline model stability checks.
-- The current selected baseline is sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features.
+- The current selected baseline is sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features with K=10 and a 50-point non-neutral home adjustment.
 - Raw data is manually downloaded and locally maintained.
 - Duplicate quarantine is in-memory.
 - Current tournament files are manually maintained.

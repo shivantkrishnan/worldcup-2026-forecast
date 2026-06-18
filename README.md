@@ -113,6 +113,12 @@ These notes are intended to become the methodology section of the dashboard or w
 
 The current baseline selection is summarized in `docs/model_selection_report.md`, and the baseline model card is in `docs/model_card_baseline.md`.
 
+## Project Status / Roadmap
+
+The current selected baseline is sigmoid-calibrated logistic regression using rolling team-form plus pre-match Elo features, currently with K-factor `10` and a `50`-point non-neutral home adjustment. Elo variants improved rolling-origin log loss, while ECE/calibration-bin alignment remains a caveat.
+
+See `docs/roadmap.md` for completed milestones, near-term modeling work, tournament forecasting plans, UI plans, and later extensions.
+
 ## Environment Troubleshooting
 
 If your prompt shows both `(.venv)` and `(base)`, deactivate Conda before rebuilding the virtual environment:

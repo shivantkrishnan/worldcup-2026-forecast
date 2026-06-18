@@ -16,7 +16,9 @@ ELO_FEATURE_COLUMNS = [
     "elo_team_a_pre",
     "elo_team_b_pre",
     "elo_diff_team_a_minus_team_b",
+    "elo_effective_diff_team_a_minus_team_b",
     "elo_expected_score_team_a",
+    "elo_home_advantage_applied",
     "elo_matches_before_team_a",
     "elo_matches_before_team_b",
 ]
@@ -43,9 +45,14 @@ def update_elo_pair(
     rating_b: float,
     score_a: float,
     k_factor: float = 20.0,
+    expected_score_a: float | None = None,
 ) -> tuple[float, float]:
     """Return updated Elo ratings for a completed match."""
-    expected_a = expected_score(rating_a, rating_b)
+    expected_a = (
+        expected_score_a
+        if expected_score_a is not None
+        else expected_score(rating_a, rating_b)
+    )
     expected_b = 1 - expected_a
     score_b = 1 - score_a
 
@@ -54,10 +61,40 @@ def update_elo_pair(
     return (float(updated_a), float(updated_b))
 
 
+def _coerce_bool(value: object) -> bool:
+    """Coerce common boolean-like values without treating missing as neutral."""
+    if value is None or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y"}:
+            return True
+        if normalized in {"false", "0", "no", "n", ""}:
+            return False
+    return bool(value)
+
+
+def _is_neutral(row: object) -> bool:
+    """Return whether a match row is neutral-site using canonical columns."""
+    if hasattr(row, "is_neutral"):
+        return _coerce_bool(getattr(row, "is_neutral"))
+    if hasattr(row, "neutral"):
+        return _coerce_bool(getattr(row, "neutral"))
+    return False
+
+
+def _home_advantage_applied(row: object, home_advantage: float) -> float:
+    """Return the numeric home bonus applied to team_a for expected score."""
+    if _is_neutral(row):
+        return 0.0
+    return float(home_advantage)
+
+
 def build_elo_features(
     canonical_matches: pd.DataFrame,
     initial_rating: float = 1500.0,
     k_factor: float = 20.0,
+    home_advantage: float = 0.0,
     date_col: str = "match_date",
 ) -> pd.DataFrame:
     """Return pre-match Elo features, updating ratings after each date block."""
@@ -80,6 +117,9 @@ def build_elo_features(
             team_b = str(getattr(row, "team_b"))
             rating_a = start_ratings.get(team_a, initial_rating)
             rating_b = start_ratings.get(team_b, initial_rating)
+            applied_home_advantage = _home_advantage_applied(row, home_advantage)
+            effective_rating_a = rating_a + applied_home_advantage
+            expected_a = expected_score(effective_rating_a, rating_b)
 
             feature_rows.append(
                 {
@@ -90,7 +130,11 @@ def build_elo_features(
                     "elo_team_a_pre": float(rating_a),
                     "elo_team_b_pre": float(rating_b),
                     "elo_diff_team_a_minus_team_b": float(rating_a - rating_b),
-                    "elo_expected_score_team_a": expected_score(rating_a, rating_b),
+                    "elo_effective_diff_team_a_minus_team_b": float(
+                        effective_rating_a - rating_b
+                    ),
+                    "elo_expected_score_team_a": expected_a,
+                    "elo_home_advantage_applied": applied_home_advantage,
                     "elo_matches_before_team_a": int(start_counts.get(team_a, 0)),
                     "elo_matches_before_team_b": int(start_counts.get(team_b, 0)),
                 }
@@ -104,12 +148,15 @@ def build_elo_features(
             rating_a = start_ratings.get(team_a, initial_rating)
             rating_b = start_ratings.get(team_b, initial_rating)
             score_a = result_to_score(str(getattr(row, "result")))
+            applied_home_advantage = _home_advantage_applied(row, home_advantage)
+            expected_a = expected_score(rating_a + applied_home_advantage, rating_b)
 
             updated_a, updated_b = update_elo_pair(
                 rating_a,
                 rating_b,
                 score_a,
                 k_factor=k_factor,
+                expected_score_a=expected_a,
             )
             rating_deltas[team_a] += updated_a - rating_a
             rating_deltas[team_b] += updated_b - rating_b
@@ -137,6 +184,7 @@ def add_elo_features_to_matches(
     canonical_matches: pd.DataFrame,
     initial_rating: float = 1500.0,
     k_factor: float = 20.0,
+    home_advantage: float = 0.0,
 ) -> pd.DataFrame:
     """Return canonical matches with leakage-safe pre-match Elo features added."""
     matches = canonical_matches.copy(deep=True)
@@ -144,6 +192,7 @@ def add_elo_features_to_matches(
         matches,
         initial_rating=initial_rating,
         k_factor=k_factor,
+        home_advantage=home_advantage,
     )
     return matches.merge(
         elo_features[["match_id", *ELO_FEATURE_COLUMNS]],

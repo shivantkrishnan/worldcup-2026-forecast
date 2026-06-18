@@ -30,15 +30,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Include leakage-safe pre-match Elo features.",
     )
+    parser.add_argument(
+        "--elo-k-factor",
+        type=float,
+        default=20.0,
+        help="Elo K-factor when --include-elo is used.",
+    )
+    parser.add_argument(
+        "--elo-home-advantage",
+        type=float,
+        default=0.0,
+        help="Team A home-rating bonus for non-neutral matches when --include-elo is used.",
+    )
     return parser.parse_args(argv)
 
 
 def build_features_for_backtest(
     baseline_matches,
     include_elo: bool = False,
+    elo_k_factor: float = 20.0,
+    elo_home_advantage: float = 0.0,
 ):
     """Build the feature table used by this backtest script."""
-    return build_modeling_features(baseline_matches, include_elo=include_elo)
+    return build_modeling_features(
+        baseline_matches,
+        include_elo=include_elo,
+        elo_k_factor=elo_k_factor,
+        elo_home_advantage=elo_home_advantage,
+    )
 
 
 def _print_aggregate_metrics(aggregate: dict[str, object]) -> None:
@@ -81,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
     features = build_features_for_backtest(
         baseline_matches,
         include_elo=args.include_elo,
+        elo_k_factor=args.elo_k_factor,
+        elo_home_advantage=args.elo_home_advantage,
     )
     results = run_rolling_origin_backtest(features)
     summary = summarize_backtest_results(results)
@@ -89,6 +110,9 @@ def main(argv: list[str] | None = None) -> int:
     print("Rolling-Origin Baseline Backtest")
     print("================================")
     print(f"include_elo: {args.include_elo}")
+    if args.include_elo:
+        print(f"elo_k_factor: {args.elo_k_factor:g}")
+        print(f"elo_home_advantage: {args.elo_home_advantage:g}")
     print(f"splits: {aggregate['split_count']}")
     print(f"evaluated splits: {aggregate['evaluated_split_count']}")
 

@@ -27,7 +27,9 @@ For each match, the feature table stores:
 - `elo_team_a_pre`
 - `elo_team_b_pre`
 - `elo_diff_team_a_minus_team_b`
+- `elo_effective_diff_team_a_minus_team_b`
 - `elo_expected_score_team_a`
+- `elo_home_advantage_applied`
 - `elo_matches_before_team_a`
 - `elo_matches_before_team_b`
 
@@ -51,8 +53,29 @@ The first implementation uses:
 
 - Initial rating: `1500.0`
 - K-factor: `20.0`
+- Home advantage: `0.0`
 
 Unseen teams start at the initial rating. The K-factor controls how quickly ratings move after each result.
+
+## Home And Neutral-Site Handling
+
+Home advantage is modeled as a temporary expected-score adjustment, not as a permanent rating increase.
+
+For non-neutral matches, `home_advantage` is added to `team_a`'s effective rating because `team_a` maps to the home team in the raw historical dataset. For neutral-site matches, no home advantage is applied.
+
+The emitted raw rating difference remains:
+
+```text
+elo_team_a_pre - elo_team_b_pre
+```
+
+The emitted effective rating difference includes only the match-context adjustment used for expected score:
+
+```text
+elo_team_a_pre + elo_home_advantage_applied - elo_team_b_pre
+```
+
+This keeps underlying team strength separate from match-location context.
 
 ## Draw Handling
 
@@ -68,7 +91,7 @@ For a draw, the higher-rated team loses rating points and the lower-rated team g
 
 This is intentionally a simple Elo implementation. Current limitations:
 
-- No home advantage term.
+- Home advantage is currently a simple fixed rating-point adjustment.
 - No margin-of-victory adjustment.
 - No tournament weighting.
 - No recency decay beyond ordinary rating movement.
@@ -93,6 +116,8 @@ Each extension should be evaluated with the same feature audit, single-holdout v
 
 The first simple Elo feature set was evaluated against the rolling-form-only baseline using the same sigmoid-calibrated logistic regression model family.
 
-Elo increased the feature count from 57 to 63 numeric features. It improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197716` and improved rolling-origin Brier score in all 6 windows.
+Elo increased the feature count from 57 to 65 numeric features after adding effective-difference and home-adjustment columns. The simple K=20/home=0 setup improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`.
 
-The calibration caveat remains: Elo improved ECE in only 2 of 6 rolling-origin windows and worsened mean ECE. The selected baseline now includes Elo features because log loss is the primary selection metric, but further calibration and rating refinement are still needed.
+The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment. This improved rolling-origin mean log loss to `1.186855` and beat simple Elo on log loss in all 6 rolling windows.
+
+The calibration caveat remains: the selected K/home variant worsened mean ECE versus simple Elo. The selected baseline includes Elo features because log loss is the primary selection metric, but further calibration and rating refinement are still needed.

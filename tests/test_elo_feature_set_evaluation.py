@@ -12,6 +12,10 @@ from scripts.compare_elo_feature_set import (
     compare_feature_sets,
     print_comparison_report,
 )
+from scripts.compare_elo_variants import (
+    compare_elo_variants,
+    print_variant_report,
+)
 from scripts.train_baseline_model import (
     build_features_for_training,
     parse_args as parse_training_args,
@@ -63,13 +67,33 @@ def test_cli_parsers_default_to_no_elo_and_accept_include_elo() -> None:
     assert parse_training_args(["--include-elo"]).include_elo is True
     assert parse_backtest_args(["--include-elo"]).include_elo is True
 
+    audit_args = parse_audit_args(
+        ["--include-elo", "--elo-k-factor", "30", "--elo-home-advantage", "75"]
+    )
+    training_args = parse_training_args(
+        ["--include-elo", "--elo-k-factor", "30", "--elo-home-advantage", "75"]
+    )
+    backtest_args = parse_backtest_args(
+        ["--include-elo", "--elo-k-factor", "30", "--elo-home-advantage", "75"]
+    )
+
+    assert audit_args.elo_k_factor == 30.0
+    assert training_args.elo_home_advantage == 75.0
+    assert backtest_args.elo_k_factor == 30.0
+
 
 def test_audit_features_can_include_elo_features() -> None:
-    features = build_features_for_audit(make_canonical_matches(), include_elo=True)
+    features = build_features_for_audit(
+        make_canonical_matches(),
+        include_elo=True,
+        elo_k_factor=30.0,
+        elo_home_advantage=75.0,
+    )
     report = audit_feature_readiness(features, test_start_date="2021-01-01")
 
     for column in ELO_FEATURE_COLUMNS:
         assert column in report["feature_columns"]
+    assert features.loc[0, "elo_home_advantage_applied"] == 75.0
 
 
 def test_default_feature_builders_remain_no_elo() -> None:
@@ -80,7 +104,12 @@ def test_default_feature_builders_remain_no_elo() -> None:
 
 
 def test_train_baseline_model_can_run_with_elo_features() -> None:
-    features = build_features_for_training(make_canonical_matches(), include_elo=True)
+    features = build_features_for_training(
+        make_canonical_matches(),
+        include_elo=True,
+        elo_k_factor=30.0,
+        elo_home_advantage=75.0,
+    )
 
     result = train_baseline_model(features, test_start_date="2021-01-01")
 
@@ -90,7 +119,12 @@ def test_train_baseline_model_can_run_with_elo_features() -> None:
 
 
 def test_backtest_can_run_with_elo_features() -> None:
-    features = build_features_for_backtest(make_canonical_matches(), include_elo=True)
+    features = build_features_for_backtest(
+        make_canonical_matches(),
+        include_elo=True,
+        elo_k_factor=30.0,
+        elo_home_advantage=75.0,
+    )
 
     results = run_rolling_origin_backtest(
         features,
@@ -121,6 +155,27 @@ def test_compare_elo_feature_set_produces_comparison_output(capsys) -> None:
     assert "Elo Feature Set Comparison" in output
     assert "no-Elo feature count" in output
     assert "Elo improves selected baseline by mean rolling-origin log loss" in output
+
+
+def test_compare_elo_variants_works_on_synthetic_data(capsys) -> None:
+    comparison = compare_elo_variants(
+        make_canonical_matches(),
+        k_factors=(10.0, 20.0),
+        home_advantages=(0.0, 50.0),
+        windows=(2,),
+        test_start_date="2021-01-01",
+        initial_train_end_date="2019-12-31",
+        test_window_months=12,
+        step_months=12,
+        final_test_end_date="2022-12-31",
+    )
+
+    print_variant_report(comparison)
+    output = capsys.readouterr().out
+
+    assert len(comparison["summary"]) == 4
+    assert "Elo Variant Comparison" in output
+    assert "Best Variant By Rolling-Origin Mean Log Loss" in output
 
 
 def test_elo_feature_columns_are_numeric_candidate_features() -> None:

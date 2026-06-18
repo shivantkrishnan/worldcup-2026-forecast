@@ -316,3 +316,71 @@ Elo was evaluated against the rolling-form-only feature set using the same sigmo
 ### Implications for Modeling/Product
 
 The selected baseline changes to sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features. The selection remains provisional because Elo improves ECE in only 2 of 6 rolling-origin windows and worsens mean ECE. Next work should refine Elo, especially home advantage, neutral-site handling, K-factor choice, margin-of-victory adjustment, and calibration.
+
+## 2026-06-17
+
+### Decision
+
+Maintain a concise project roadmap and extension backlog in `docs/roadmap.md`.
+
+### Rationale
+
+The project now has enough completed modeling, validation, documentation, and feature-engineering milestones that future work should be separated into core modeling, tournament forecasting, product/UI, supplemental extensions, and out-of-scope items.
+
+### Implications for Modeling/Product
+
+The roadmap keeps the near-term baseline-improvement path focused on Elo refinement while preserving later ideas such as player features, market benchmarks, live in-match modeling, and tournament-specific backtesting as supplemental extensions.
+
+## 2026-06-18
+
+### Decision
+
+Evaluate simple Elo variants by K-factor and fixed home advantage.
+
+### Rationale
+
+The selected Elo baseline improves log loss and Brier score, but it uses a single K-factor and no home/neutral-site adjustment. Historical non-neutral international matches may contain home advantage, while neutral-site matches should not receive that bonus.
+
+### Alternatives Considered
+
+- Move directly to margin-of-victory or tournament-weighted Elo.
+- Tune only K-factor without home advantage.
+- Keep the simple K=20, no-home Elo setup until model families change.
+
+### Implications for Modeling/Product
+
+The variant comparison keeps underlying ratings as team-strength ratings and applies home advantage only to match-level expected score for non-neutral matches. Variant selection remains based on rolling-origin mean log loss first, with Brier score, accuracy, and ECE as supporting diagnostics.
+
+## 2026-06-18
+
+### Decision
+
+Select the K=10, home-advantage=50 Elo variant as the current baseline Elo setup.
+
+### Rationale
+
+The compact grid compared K-factor values `10`, `20`, `30` and home advantages `0`, `50`, `75`, `100`. K=10 with a 50-point non-neutral home adjustment had the best rolling-origin mean log loss at `1.186855`, improving over the simple K=20/home=0 setup at `1.197724`. It beat simple Elo on log loss in all 6 rolling windows.
+
+### Alternatives Considered
+
+- Keep K=20 and no home advantage because mean ECE is better.
+- Select K=20/home=50 because it has better Brier score and accuracy.
+- Delay selection until margin-of-victory or tournament-weighted Elo is available.
+
+### Implications for Modeling/Product
+
+The selected baseline remains sigmoid-calibrated logistic regression over rolling team-form plus pre-match Elo features, now using K=10 and home advantage=50. The selection is still provisional because mean ECE worsened from `0.039671` to `0.041903`. Calibration caveats must remain visible.
+
+## 2026-06-18
+
+### Decision
+
+Document K=10 as an empirically selected international-football Elo smoothing parameter.
+
+### Rationale
+
+K controls rating update speed, and international football differs from chess or club leagues because fixtures are sparse, irregular, and heterogeneous across friendlies, qualifiers, and tournaments. The project should not borrow chess/FIDE K conventions mechanically. K=10 was selected from a compact out-of-sample rolling-origin grid because it produced the best mean log loss when paired with a 50-point non-neutral home adjustment.
+
+### Implications for Modeling/Product
+
+The selected K remains provisional. The dashboard methodology should describe K=10 as a validated forecasting choice for this dataset, not as a universal rating rule. Tournament-specific backtests, margin-of-victory Elo, tournament weighting, and host-country effects may change the preferred K later.
