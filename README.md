@@ -143,7 +143,7 @@ Run a group-stage Monte Carlo simulation:
 python scripts/simulate_group_stage.py
 ```
 
-The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It prints forecast-mode/backfilled-row metadata, advancement probabilities, and does not write simulation files by default.
+The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It fixes completed results when available, samples conditional scorelines for unplayed fixtures, prints forecast-mode/backfilled-row metadata and advancement probabilities, and does not write simulation files by default.
 
 If `data/tournament/results_2026.csv` exists, the simulator validates it and
 fixes completed matches before sampling the remaining fixtures. For a diagnostic
@@ -171,7 +171,7 @@ The scheduled-fixture forecast output design is documented in `docs/forecast_out
 The group-stage simulation design is documented in `docs/tournament_simulation.md`.
 Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
 
-Forecast mode semantics are documented in `docs/forecast_output_design.md`. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
+Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined.
 Completed-result ingestion is documented in `docs/tournament_data_ingestion.md` and `docs/results_2026_template.md`.
 
 ## Project Status / Roadmap

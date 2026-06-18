@@ -2,6 +2,30 @@
 
 This log records methodological, data, validation, and product decisions that affect modeling or interpretation.
 
+## 2026-06-18
+
+### Decision
+
+Use an explicit match display table to separate completed results, scheduled
+predictions, and prediction-audit probabilities.
+
+### Rationale
+
+Completed fixtures can have model probabilities for audit, especially when
+predictions were backfilled ex ante, but they should never be presented as
+current or future predictions once an official result exists.
+
+### Alternatives Considered
+
+- Let the UI read generated prediction rows directly.
+- Hide all probabilities for completed matches.
+
+### Implications for Modeling/Product
+
+The UI should display actual scores first for completed matches. Probabilities
+for completed matches remain available for audit, while scheduled matches
+without results are the only rows labeled as current predictions.
+
 ## 2026-06-16
 
 ### Decision
@@ -520,3 +544,29 @@ as `Korea Republic`, `Czechia`, `Congo DR`, and `Cabo Verde`, preserves local
 fixture orientation, validates the output, and writes `results_2026.csv`.
 Rows that cannot be verified or mapped are omitted and reported. The resulting
 file is small tournament-state input and remains excluded from model training.
+
+## 2026-06-18
+
+### Decision
+
+Upgrade group-stage simulation from W/D/L-only outcomes to conditional
+scoreline simulation and official-style ranking.
+
+### Rationale
+
+W/D/L-only simulation cannot rank groups realistically because goal difference
+and goals scored are central to group and best-third-place standings. The
+selected model still forecasts W/D/L probabilities, so scorelines should be a
+transparent conditional simulation layer rather than a new unvalidated goals
+model.
+
+### Implications for Modeling/Product
+
+Completed 2026 results keep their actual scores. Unplayed fixtures sample a
+W/D/L class from model probabilities, then sample a scoreline conditional on
+that class from empirical historical distributions or documented fallbacks.
+Group ranking now uses points, feasible head-to-head metrics, goal difference,
+goals scored, optional conduct/ranking fields, and seeded random fallback.
+Best-third-place ranking uses points, goal difference, goals for, optional
+conduct/ranking fields, and seeded random fallback. Knockout simulation remains
+out of scope.

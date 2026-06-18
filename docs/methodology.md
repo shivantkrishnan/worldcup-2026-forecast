@@ -124,11 +124,18 @@ Fixture prediction generation can print predictions or explicitly write `data/to
 
 Forecast outputs distinguish `pre_tournament`, `backfilled_ex_ante`, and `live` modes. `feature_cutoff_date` is mandatory metadata because it defines the information set used to build fixture features. Backfilled ex-ante predictions can reconstruct pre-tournament probabilities after the fact, but they are not the same as true timestamped live predictions.
 
+The display layer must also separate scheduled forecasts from completed-match
+audit rows. Once a completed result exists, the match is displayed as an actual
+result; any model probabilities attached to that match belong to prediction
+audit language, not live or future-prediction language.
+
 The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. When completed 2026 results are present in `results_2026.csv`, those matches are fixed in every run and only remaining matches are sampled. Completed 2026 results can update tournament state and live simulation state, but they cannot train the first baseline model.
 
 Completed 2026 results should come from official or clearly source-attributed sources. Unverified results are omitted rather than inferred, because a wrong fixed result is more damaging to live simulation state than a missing one.
 
-The simulator samples `team_a_win`, `draw`, or `team_b_win`, awards points, and estimates group-winner/top-two/advancement probabilities. Because scorelines are not modeled yet, group ranking currently uses points, wins, and a seeded random tie-break placeholder rather than official goal-difference tie-break rules.
+For unplayed fixtures, the simulator samples `team_a_win`, `draw`, or `team_b_win` from model probabilities, then samples a plausible scoreline conditional on that class. This conditional scoreline layer is used for group-table mechanics such as goal difference and goals scored; it is not a separately validated goals model.
+
+Group ranking now uses points, feasible head-to-head metrics, overall goal difference, goals scored, optional conduct/ranking fields, and seeded random fallback. Third-place ranking uses points, goal difference, goals for, optional conduct/ranking fields, and seeded random fallback. Completed results remain fixed and are never resampled.
 
 Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.
 

@@ -24,6 +24,9 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Explicit pre-tournament, backfilled ex-ante, and guarded live forecast metadata.
 - Manually maintained completed-result ingestion for live group-stage simulation conditioning.
 - Official-source result ingestion helper for `results_2026.csv`.
+- Conditional scoreline simulation for group-stage goal difference and goals scored.
+- Official-style group and best-third-place ranking helpers.
+- Display-status guardrail separating completed results, scheduled predictions, and audit probabilities.
 
 ## Current Selected Baseline
 
@@ -55,6 +58,7 @@ After each variant:
 - Maintain `data/tournament/results_2026.csv` so live simulations fix completed matches instead of sampling backfilled predictions.
 - Add live fixture-feature updating from completed 2026 results without retraining the baseline.
 - Add a lightweight result/audit workflow for refreshing official completed results as the group stage progresses.
+- Validate or refine the conditional scoreline layer against historical tournaments.
 - Extend Monte Carlo simulation from group-stage only to knockout brackets.
 - Output group qualification, knockout advancement, finalist, and champion probabilities.
 - Distinguish pre-tournament, live, and backfilled forecasts.
@@ -62,6 +66,7 @@ After each variant:
 ## Product/UI Roadmap
 
 - Streamlit match predictor.
+- Consume the display-status table so completed matches show actual scores and predictions for completed matches appear only in audit context.
 - Display favorite plus full 3-class probabilities.
 - Show model caveats and selected baseline summary.
 - Show tournament simulation outputs.
@@ -74,7 +79,7 @@ After each variant:
 - Live in-match prediction model using score, minute, red cards, shots, xG, possession, pass completion, corners, and other live stats.
 - Bootstrapped uncertainty intervals.
 - Tournament-specific backtesting over prior World Cups or major tournaments.
-- Scoreline or goal-difference simulation for official tie-break rules.
+- Calibrated scoreline/goals model beyond the current conditional simulation layer.
 - Richer event-data features if reliable data becomes available.
 
 ## Not Yet in Scope

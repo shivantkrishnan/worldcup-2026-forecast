@@ -15,6 +15,8 @@ from src.data.tournament_results import (  # noqa: E402
     load_tournament_results,
     merge_completed_results_with_fixtures_or_predictions,
 )
+from src.data.pipeline import load_baseline_training_matches  # noqa: E402
+from src.simulation.scorelines import build_empirical_scoreline_distributions  # noqa: E402
 from src.simulation.tournament import (  # noqa: E402
     simulate_group_stage,
     summarize_advancement_probabilities,
@@ -189,6 +191,19 @@ def _format_counts(counts: dict[str, int]) -> str:
     return ", ".join(f"{key}={value}" for key, value in counts.items())
 
 
+def _load_scoreline_distributions() -> tuple[dict, str]:
+    """Load empirical scoreline distributions or fall back to defaults."""
+    try:
+        completed_matches = load_baseline_training_matches()
+    except FileNotFoundError:
+        return {}, "Using fallback conditional scoreline distributions."
+
+    distributions = build_empirical_scoreline_distributions(completed_matches)
+    if not distributions:
+        return {}, "Using fallback conditional scoreline distributions."
+    return distributions, "Using empirical historical scoreline distributions."
+
+
 def _condition_on_completed_results(
     fixtures: pd.DataFrame,
     results_path: str | Path = RESULTS_PATH,
@@ -233,11 +248,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     prediction_metadata = summarize_prediction_metadata(fixtures)
+    scoreline_distributions, scoreline_message = _load_scoreline_distributions()
+    fixed_completed_count = int(prediction_metadata["fixed_completed_count"])
+    sampled_remaining_count = int(len(fixtures) - fixed_completed_count)
     simulation_results = simulate_group_stage(
         fixtures,
         n_simulations=DEFAULT_SIMULATION_COUNT,
         random_seed=42,
         top_n_per_group=2,
+        include_best_third_place=True,
+        n_best_third_place=8,
+        scoreline_distributions=scoreline_distributions,
     )
     summary = summarize_advancement_probabilities(simulation_results)
 
@@ -246,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     print(source_message)
     print(results_message)
     print(f"simulation count: {DEFAULT_SIMULATION_COUNT:,}")
+    print(scoreline_message)
+    print("scoreline simulation used: yes")
     print(
         "forecast_mode values: "
         + _format_counts(prediction_metadata["forecast_mode_counts"])
@@ -256,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
         "backfilled rows still sampled: "
         f"{prediction_metadata['sampled_backfilled_count']}"
     )
+    print(f"sampled remaining matches per simulation: {sampled_remaining_count}")
     print(
         "completed matches sampled as predictions: "
         + (
@@ -283,6 +307,34 @@ def main(argv: list[str] | None = None) -> int:
         .to_string(index=False)
     )
 
+    print("\nTop Top-Two Probabilities")
+    print("=========================")
+    print(
+        summary.sort_values(
+            ["top_2_prob", "group_winner_prob", "team"],
+            ascending=[False, False, True],
+            kind="mergesort",
+        )
+        .head(12)
+        .to_string(index=False)
+    )
+
+    print("\nTop Best-Third Advancement Probabilities")
+    print("========================================")
+    third_place_summary = summary.loc[summary["best_third_place_advance_prob"] > 0]
+    if third_place_summary.empty:
+        print("No best-third-place advancement in this simulation configuration.")
+    else:
+        print(
+            third_place_summary.sort_values(
+                ["best_third_place_advance_prob", "advance_prob", "team"],
+                ascending=[False, False, True],
+                kind="mergesort",
+            )
+            .head(12)
+            .to_string(index=False)
+        )
+
     print("\nGroup Winner Probabilities")
     print("==========================")
     print(
@@ -298,9 +350,10 @@ def main(argv: list[str] | None = None) -> int:
     print("\nNote")
     print("====")
     print(
-        "Scoreline, goal-difference, and official tie-break rules are not "
-        "implemented yet; ties currently use points, wins, then a seeded random "
-        "tie-break placeholder."
+        "Goal difference, goals scored, and official-style tie-breaks are now "
+        "approximated with a conditional scoreline layer. This is not yet a "
+        "separately calibrated goals model, and knockout simulation is not "
+        "implemented."
     )
     print("\nNo simulation files were written.")
     return 0

@@ -67,6 +67,8 @@ def test_generate_fixture_predictions_runs_on_synthetic_fixture_data() -> None:
     assert predictions.loc[0, "selected_baseline_label"] == (
         generator.SELECTED_BASELINE_LABEL
     )
+    assert predictions.loc[0, "forecast_mode"] == "pre_tournament"
+    assert predictions.loc[0, "feature_cutoff_date"] == "2026-06-10"
 
 
 def test_generated_probabilities_sum_to_one() -> None:
@@ -91,6 +93,20 @@ def test_past_fixture_dates_are_marked_backfilled() -> None:
     )
 
     assert bool(predictions.loc[0, "is_backfilled"]) is True
+    assert predictions.loc[0, "forecast_mode"] == "backfilled_ex_ante"
+    assert predictions.loc[0, "feature_cutoff_date"] == "2026-06-10"
+
+
+def test_explicit_backfilled_ex_ante_uses_training_cutoff_by_default() -> None:
+    predictions = generator.generate_fixture_predictions(
+        make_training_matches(),
+        make_fixtures(),
+        forecast_mode="backfilled_ex_ante",
+        generated_at="2026-06-01T00:00:00+00:00",
+    )
+
+    assert predictions.loc[0, "forecast_mode"] == "backfilled_ex_ante"
+    assert predictions.loc[0, "feature_cutoff_date"] == "2026-06-10"
 
 
 def test_optional_output_writing_only_happens_when_output_is_provided(
@@ -134,6 +150,31 @@ def test_optional_output_writes_when_output_is_provided(
 
     assert result == 0
     assert output_path.exists()
+
+
+def test_live_mode_fails_gracefully_without_results_file(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    fixture_path = tmp_path / "fixtures_2026.csv"
+    missing_results_path = tmp_path / "results_2026.csv"
+    make_fixtures().to_csv(fixture_path, index=False)
+    monkeypatch.setattr(
+        generator,
+        "load_baseline_training_matches",
+        lambda: make_training_matches(),
+    )
+    monkeypatch.setattr(generator, "RESULTS_2026_PATH", str(missing_results_path))
+
+    result = generator.main(
+        ["--fixtures", str(fixture_path), "--forecast-mode", "live"]
+    )
+    output = capsys.readouterr().out
+
+    assert result == 1
+    assert "Live forecast mode requires" in output
+    assert "No live predictions were generated" in output
 
 
 def test_simulate_group_stage_can_consume_fixture_predictions_style_dataframe() -> None:

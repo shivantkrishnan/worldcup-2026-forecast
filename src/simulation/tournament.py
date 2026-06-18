@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.simulation.scorelines import sample_scoreline_from_probabilities
+
 OUTCOME_TEAM_A_WIN = "team_a_win"
 OUTCOME_DRAW = "draw"
 OUTCOME_TEAM_B_WIN = "team_b_win"
@@ -21,8 +23,13 @@ SUMMARY_COLUMNS = [
     "simulations",
     "group_winner_prob",
     "top_2_prob",
+    "third_place_prob",
+    "best_third_place_advance_prob",
     "advance_prob",
     "avg_points",
+    "avg_goals_for",
+    "avg_goals_against",
+    "avg_goal_difference",
     "avg_group_rank",
 ]
 
@@ -92,6 +99,21 @@ def validate_fixture_probability_table(fixtures: pd.DataFrame) -> pd.DataFrame:
                         f"Completed fixture rows require non-null {column}."
                     )
 
+            for _, row in validated.loc[completed].iterrows():
+                goals_a = int(row["team_a_goals"])
+                goals_b = int(row["team_b_goals"])
+                if goals_a > goals_b:
+                    expected_result = OUTCOME_TEAM_A_WIN
+                elif goals_a < goals_b:
+                    expected_result = OUTCOME_TEAM_B_WIN
+                else:
+                    expected_result = OUTCOME_DRAW
+                if row[ACTUAL_RESULT_COLUMN] != expected_result:
+                    raise ValueError(
+                        "Completed fixture scores must be consistent with "
+                        "actual_result."
+                    )
+
     return validated
 
 
@@ -123,22 +145,60 @@ def sample_match_outcome(row: pd.Series, rng: np.random.Generator) -> str:
     return str(rng.choice(VALID_OUTCOMES, p=probabilities))
 
 
+def _team_metadata(row: object, prefix: str) -> dict[str, float]:
+    """Return optional team-level tie-break metadata from a fixture row."""
+    conduct_column = f"{prefix}_team_conduct_score"
+    ranking_column = f"{prefix}_fifa_ranking"
+    conduct_score = (
+        getattr(row, conduct_column)
+        if hasattr(row, conduct_column)
+        else np.nan
+    )
+    fifa_ranking = (
+        getattr(row, ranking_column)
+        if hasattr(row, ranking_column)
+        else np.nan
+    )
+    return {
+        "team_conduct_score": float(conduct_score)
+        if not pd.isna(conduct_score)
+        else np.nan,
+        "fifa_ranking": float(fifa_ranking)
+        if not pd.isna(fifa_ranking)
+        else np.nan,
+    }
+
+
 def _initial_group_table(fixtures: pd.DataFrame) -> pd.DataFrame:
     """Return zeroed standings rows for every team/group in the fixtures."""
     team_rows: list[dict[str, object]] = []
     for row in fixtures.itertuples(index=False):
         group = getattr(row, "group")
-        team_rows.append({"group": group, "team": getattr(row, "team_a")})
-        team_rows.append({"group": group, "team": getattr(row, "team_b")})
+        team_rows.append(
+            {
+                "group": group,
+                "team": getattr(row, "team_a"),
+                **_team_metadata(row, "team_a"),
+            }
+        )
+        team_rows.append(
+            {
+                "group": group,
+                "team": getattr(row, "team_b"),
+                **_team_metadata(row, "team_b"),
+            }
+        )
 
     teams = pd.DataFrame(team_rows).drop_duplicates(["group", "team"])
     for column in [
+        "played",
         "points",
         "wins",
         "draws",
         "losses",
         "goals_for",
         "goals_against",
+        "goal_difference",
     ]:
         teams[column] = 0
     return teams.reset_index(drop=True)
@@ -157,12 +217,14 @@ def _add_team_result(
 ) -> None:
     """Mutate one simulation table row with a sampled result."""
     mask = table["group"].eq(group) & table["team"].eq(team)
+    table.loc[mask, "played"] += 1
     table.loc[mask, "points"] += points
     table.loc[mask, "wins"] += win
     table.loc[mask, "draws"] += draw
     table.loc[mask, "losses"] += loss
     table.loc[mask, "goals_for"] += goals_for
     table.loc[mask, "goals_against"] += goals_against
+    table.loc[mask, "goal_difference"] += goals_for - goals_against
 
 
 def _completed_score(row: pd.Series) -> tuple[int, int]:
@@ -174,23 +236,163 @@ def _completed_score(row: pd.Series) -> tuple[int, int]:
     return int(row["team_a_goals"]), int(row["team_b_goals"])
 
 
+def simulate_fixture_results_once(
+    fixtures: pd.DataFrame,
+    rng: np.random.Generator,
+    scoreline_distributions: dict[str, pd.DataFrame] | None = None,
+) -> pd.DataFrame:
+    """Return one simulated result row per fixture.
+
+    Completed rows keep their actual result and score. Remaining rows sample a
+    W/D/L class from model probabilities, then sample a scoreline conditional on
+    that class.
+    """
+    validated = validate_fixture_probability_table(fixtures)
+    rows: list[dict[str, object]] = []
+    for _, row in validated.iterrows():
+        is_fixed_result = _row_is_completed(row)
+        if is_fixed_result:
+            sampled_result = str(row[ACTUAL_RESULT_COLUMN])
+            team_a_goals = int(row["team_a_goals"])
+            team_b_goals = int(row["team_b_goals"])
+        else:
+            sampled_result, team_a_goals, team_b_goals = sample_scoreline_from_probabilities(
+                row,
+                rng,
+                scoreline_distributions=scoreline_distributions,
+            )
+
+        rows.append(
+            {
+                "match_id": row["match_id"],
+                "group": row["group"],
+                "team_a": row["team_a"],
+                "team_b": row["team_b"],
+                "sampled_result": sampled_result,
+                "team_a_goals": team_a_goals,
+                "team_b_goals": team_b_goals,
+                "is_fixed_result": is_fixed_result,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _add_head_to_head_metrics(
+    group_table: pd.DataFrame,
+    group_matches: pd.DataFrame | None,
+) -> pd.DataFrame:
+    """Add head-to-head tie-break metrics for teams tied on points."""
+    output = group_table.copy(deep=True)
+    for column in [
+        "head_to_head_points",
+        "head_to_head_goal_difference",
+        "head_to_head_goals_for",
+    ]:
+        output[column] = 0
+
+    if group_matches is None or group_matches.empty:
+        return output
+
+    for _, tied_teams in output.groupby("points", sort=False):
+        if len(tied_teams) <= 1:
+            continue
+        team_set = set(tied_teams["team"])
+        head_to_head_matches = group_matches.loc[
+            group_matches["team_a"].isin(team_set)
+            & group_matches["team_b"].isin(team_set)
+        ]
+        if head_to_head_matches.empty:
+            continue
+
+        metrics = {
+            team: {
+                "points": 0,
+                "goal_difference": 0,
+                "goals_for": 0,
+            }
+            for team in team_set
+        }
+        for match in head_to_head_matches.itertuples(index=False):
+            team_a = getattr(match, "team_a")
+            team_b = getattr(match, "team_b")
+            goals_a = int(getattr(match, "team_a_goals"))
+            goals_b = int(getattr(match, "team_b_goals"))
+            metrics[team_a]["goals_for"] += goals_a
+            metrics[team_b]["goals_for"] += goals_b
+            metrics[team_a]["goal_difference"] += goals_a - goals_b
+            metrics[team_b]["goal_difference"] += goals_b - goals_a
+            if goals_a > goals_b:
+                metrics[team_a]["points"] += 3
+            elif goals_a < goals_b:
+                metrics[team_b]["points"] += 3
+            else:
+                metrics[team_a]["points"] += 1
+                metrics[team_b]["points"] += 1
+
+        for team, team_metrics in metrics.items():
+            mask = output["team"].eq(team)
+            output.loc[mask, "head_to_head_points"] = team_metrics["points"]
+            output.loc[mask, "head_to_head_goal_difference"] = team_metrics[
+                "goal_difference"
+            ]
+            output.loc[mask, "head_to_head_goals_for"] = team_metrics["goals_for"]
+
+    return output
+
+
 def rank_group_table(
     group_results: pd.DataFrame,
     tie_breaker_order: list[str] | None = None,
     rng: np.random.Generator | None = None,
+    group_matches: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Rank one group table using a temporary seeded random final tie-break."""
-    tie_breakers = tie_breaker_order or ["points", "wins"]
+    """Rank one group table with official-style group-stage tie-breakers.
+
+    Head-to-head metrics are applied for teams tied on points. Multi-team ties
+    are handled by aggregating matches among the tied teams, which is a clean
+    approximation but does not recursively reapply head-to-head criteria after a
+    subset remains tied.
+    """
+    tie_breakers = tie_breaker_order or [
+        "points",
+        "head_to_head_points",
+        "head_to_head_goal_difference",
+        "head_to_head_goals_for",
+        "goal_difference",
+        "goals_for",
+        "team_conduct_score",
+        "fifa_ranking",
+    ]
     ranked = group_results.copy(deep=True)
     random_generator = rng if rng is not None else np.random.default_rng(0)
+    ranked = _add_head_to_head_metrics(ranked, group_matches)
+    for optional_column in ["team_conduct_score", "fifa_ranking"]:
+        if optional_column not in ranked.columns:
+            ranked[optional_column] = np.nan
     ranked["_random_tiebreak"] = random_generator.random(len(ranked))
-    ranked = ranked.sort_values(
-        [*tie_breakers, "_random_tiebreak", "team"],
-        ascending=[False for _ in tie_breakers] + [False, True],
-        kind="mergesort",
-    ).reset_index(drop=True)
+    ranked["_team_conduct_sort"] = ranked["team_conduct_score"].fillna(-np.inf)
+    ranked["_fifa_ranking_sort"] = ranked["fifa_ranking"].fillna(np.inf)
+
+    sort_columns = []
+    ascending = []
+    for column in tie_breakers:
+        if column == "team_conduct_score":
+            sort_columns.append("_team_conduct_sort")
+            ascending.append(False)
+        elif column == "fifa_ranking":
+            sort_columns.append("_fifa_ranking_sort")
+            ascending.append(True)
+        elif column in ranked.columns:
+            sort_columns.append(column)
+            ascending.append(False)
+    sort_columns.extend(["_random_tiebreak", "team"])
+    ascending.extend([False, True])
+
+    ranked = ranked.sort_values(sort_columns, ascending=ascending, kind="mergesort").reset_index(drop=True)
     ranked["group_rank"] = np.arange(1, len(ranked) + 1)
-    return ranked.drop(columns=["_random_tiebreak"])
+    return ranked.drop(
+        columns=["_random_tiebreak", "_team_conduct_sort", "_fifa_ranking_sort"]
+    )
 
 
 def _apply_best_third_place_advancement(
@@ -208,11 +410,7 @@ def _apply_best_third_place_advancement(
     if candidates.empty:
         return output
 
-    ranked_candidates = rank_group_table(
-        candidates,
-        tie_breaker_order=tie_breaker_order,
-        rng=rng,
-    )
+    ranked_candidates = rank_third_place_teams(candidates, rng=rng)
     selected = ranked_candidates.head(n_best_third_place)[["group", "team"]]
     selected_keys = set(zip(selected["group"], selected["team"]))
     selected_mask = output.apply(
@@ -220,7 +418,42 @@ def _apply_best_third_place_advancement(
         axis=1,
     )
     output.loc[selected_mask, "advanced"] = True
+    output.loc[selected_mask, "best_third_place_advanced"] = True
     return output
+
+
+def rank_third_place_teams(
+    third_place_teams: pd.DataFrame,
+    rng: np.random.Generator | None = None,
+) -> pd.DataFrame:
+    """Rank third-place teams across groups using 2026-style criteria."""
+    ranked = third_place_teams.copy(deep=True)
+    random_generator = rng if rng is not None else np.random.default_rng(0)
+    ranked["_team_conduct_sort"] = ranked.get(
+        "team_conduct_score",
+        pd.Series([np.nan] * len(ranked), index=ranked.index),
+    ).fillna(-np.inf)
+    ranked["_fifa_ranking_sort"] = ranked.get(
+        "fifa_ranking",
+        pd.Series([np.nan] * len(ranked), index=ranked.index),
+    ).fillna(np.inf)
+    ranked["_random_tiebreak"] = random_generator.random(len(ranked))
+    ranked = ranked.sort_values(
+        [
+            "points",
+            "goal_difference",
+            "goals_for",
+            "_team_conduct_sort",
+            "_fifa_ranking_sort",
+            "_random_tiebreak",
+            "team",
+        ],
+        ascending=[False, False, False, False, True, False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    return ranked.drop(
+        columns=["_team_conduct_sort", "_fifa_ranking_sort", "_random_tiebreak"]
+    )
 
 
 def simulate_group_stage_once(
@@ -229,20 +462,27 @@ def simulate_group_stage_once(
     points_for_win: int = 3,
     points_for_draw: int = 1,
     top_n_per_group: int = 2,
-    include_best_third_place: bool = False,
-    n_best_third_place: int = 0,
+    include_best_third_place: bool = True,
+    n_best_third_place: int = 8,
     tie_breaker_order: list[str] | None = None,
+    scoreline_distributions: dict[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """Simulate one group stage and return one standings row per team."""
     validated = validate_fixture_probability_table(fixtures)
     table = _initial_group_table(validated)
+    match_results = simulate_fixture_results_once(
+        validated,
+        rng=rng,
+        scoreline_distributions=scoreline_distributions,
+    )
 
-    for _, row in validated.iterrows():
-        outcome = sample_match_outcome(row, rng)
+    for _, row in match_results.iterrows():
+        outcome = row["sampled_result"]
         group = row["group"]
         team_a = row["team_a"]
         team_b = row["team_b"]
-        team_a_goals, team_b_goals = _completed_score(row)
+        team_a_goals = int(row["team_a_goals"])
+        team_b_goals = int(row["team_b_goals"])
 
         if outcome == OUTCOME_TEAM_A_WIN:
             _add_team_result(
@@ -319,10 +559,13 @@ def simulate_group_stage_once(
             group_table,
             tie_breaker_order=tie_breaker_order,
             rng=rng,
+            group_matches=match_results.loc[match_results["group"].eq(group)],
         )
-        for _, group_table in table.groupby("group", sort=True)
+        for group, group_table in table.groupby("group", sort=True)
     ]
     ranked = pd.concat(ranked_groups, ignore_index=True)
+    ranked["third_place"] = ranked["group_rank"].eq(3)
+    ranked["best_third_place_advanced"] = False
     ranked["advanced"] = ranked["group_rank"] <= top_n_per_group
 
     if include_best_third_place:
@@ -337,12 +580,16 @@ def simulate_group_stage_once(
         [
             "team",
             "group",
+            "played",
             "points",
             "wins",
             "draws",
             "losses",
             "goals_for",
             "goals_against",
+            "goal_difference",
+            "third_place",
+            "best_third_place_advanced",
             "group_rank",
             "advanced",
         ]
@@ -356,9 +603,10 @@ def simulate_group_stage(
     points_for_win: int = 3,
     points_for_draw: int = 1,
     top_n_per_group: int = 2,
-    include_best_third_place: bool = False,
-    n_best_third_place: int = 0,
+    include_best_third_place: bool = True,
+    n_best_third_place: int = 8,
     tie_breaker_order: list[str] | None = None,
+    scoreline_distributions: dict[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """Run repeated group-stage simulations and return team-level results."""
     if n_simulations <= 0:
@@ -382,6 +630,7 @@ def simulate_group_stage(
             include_best_third_place=include_best_third_place,
             n_best_third_place=n_best_third_place,
             tie_breaker_order=tie_breaker_order,
+            scoreline_distributions=scoreline_distributions,
         )
         result["simulation_id"] = simulation_id
         simulations.append(result)
@@ -393,7 +642,19 @@ def summarize_advancement_probabilities(
     simulation_results: pd.DataFrame,
 ) -> pd.DataFrame:
     """Summarize simulated group-stage advancement probabilities."""
-    required = {"team", "group", "simulation_id", "points", "group_rank", "advanced"}
+    required = {
+        "team",
+        "group",
+        "simulation_id",
+        "points",
+        "group_rank",
+        "advanced",
+        "goals_for",
+        "goals_against",
+        "goal_difference",
+        "third_place",
+        "best_third_place_advanced",
+    }
     missing = required.difference(simulation_results.columns)
     if missing:
         raise ValueError(
@@ -406,8 +667,16 @@ def summarize_advancement_probabilities(
         simulations=("simulation_id", "nunique"),
         group_winner_prob=("group_rank", lambda values: float((values == 1).mean())),
         top_2_prob=("group_rank", lambda values: float((values <= 2).mean())),
+        third_place_prob=("third_place", lambda values: float(values.astype(bool).mean())),
+        best_third_place_advance_prob=(
+            "best_third_place_advanced",
+            lambda values: float(values.astype(bool).mean()),
+        ),
         advance_prob=("advanced", lambda values: float(values.astype(bool).mean())),
         avg_points=("points", "mean"),
+        avg_goals_for=("goals_for", "mean"),
+        avg_goals_against=("goals_against", "mean"),
+        avg_goal_difference=("goal_difference", "mean"),
         avg_group_rank=("group_rank", "mean"),
     ).reset_index()
 

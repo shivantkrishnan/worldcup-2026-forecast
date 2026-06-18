@@ -7,7 +7,10 @@ import pytest
 from scripts.simulate_group_stage import main as simulate_group_stage_main
 from src.simulation.tournament import (
     VALID_OUTCOMES,
+    rank_group_table,
+    rank_third_place_teams,
     sample_match_outcome,
+    simulate_fixture_results_once,
     simulate_group_stage,
     simulate_group_stage_once,
     summarize_advancement_probabilities,
@@ -133,6 +136,46 @@ def test_completed_match_is_fixed_and_not_sampled() -> None:
     assert beta["goals_against"] == 1
 
 
+def test_fixture_result_rows_include_fixed_and_sampled_scores() -> None:
+    fixtures = pd.concat(
+        [
+            one_match_fixture().assign(
+                is_completed=True,
+                actual_result="team_b_win",
+                team_a_goals=1,
+                team_b_goals=2,
+            ),
+            pd.DataFrame(
+                [
+                    {
+                        "match_id": "m2",
+                        "group": "A",
+                        "team_a": "Gamma",
+                        "team_b": "Delta",
+                        "p_team_a_win": 0.0,
+                        "p_draw": 1.0,
+                        "p_team_b_win": 0.0,
+                        "is_completed": False,
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+
+    match_results = simulate_fixture_results_once(fixtures, np.random.default_rng(1))
+
+    fixed = match_results.loc[match_results["match_id"].eq("m1")].iloc[0]
+    sampled = match_results.loc[match_results["match_id"].eq("m2")].iloc[0]
+    assert bool(fixed["is_fixed_result"]) is True
+    assert fixed["sampled_result"] == "team_b_win"
+    assert fixed["team_a_goals"] == 1
+    assert fixed["team_b_goals"] == 2
+    assert bool(sampled["is_fixed_result"]) is False
+    assert sampled["sampled_result"] == "draw"
+    assert sampled["team_a_goals"] == sampled["team_b_goals"]
+
+
 def test_uncompleted_matches_are_still_sampled() -> None:
     fixtures = pd.concat(
         [
@@ -184,6 +227,7 @@ def test_top_n_per_group_advancement_works() -> None:
         n_simulations=1,
         random_seed=42,
         top_n_per_group=1,
+        include_best_third_place=False,
     )
 
     advanced = result.loc[result["advanced"]]
@@ -222,10 +266,140 @@ def test_output_summary_has_required_columns() -> None:
         "simulations",
         "group_winner_prob",
         "top_2_prob",
+        "third_place_prob",
+        "best_third_place_advance_prob",
         "advance_prob",
         "avg_points",
+        "avg_goals_for",
+        "avg_goals_against",
+        "avg_goal_difference",
         "avg_group_rank",
     ]
+
+
+def test_ranking_uses_points_first() -> None:
+    table = pd.DataFrame(
+        [
+            {"group": "A", "team": "Alpha", "points": 6, "goals_for": 2, "goal_difference": 1},
+            {"group": "A", "team": "Beta", "points": 3, "goals_for": 4, "goal_difference": 3},
+        ]
+    )
+
+    ranked = rank_group_table(table, rng=np.random.default_rng(1))
+
+    assert list(ranked["team"]) == ["Alpha", "Beta"]
+
+
+def test_ranking_uses_goal_difference_tie_break() -> None:
+    table = pd.DataFrame(
+        [
+            {"group": "A", "team": "Alpha", "points": 4, "goals_for": 2, "goal_difference": 2},
+            {"group": "A", "team": "Beta", "points": 4, "goals_for": 5, "goal_difference": 1},
+        ]
+    )
+
+    ranked = rank_group_table(table, rng=np.random.default_rng(1))
+
+    assert list(ranked["team"]) == ["Alpha", "Beta"]
+
+
+def test_ranking_uses_goals_scored_tie_break() -> None:
+    table = pd.DataFrame(
+        [
+            {"group": "A", "team": "Alpha", "points": 4, "goals_for": 5, "goal_difference": 1},
+            {"group": "A", "team": "Beta", "points": 4, "goals_for": 3, "goal_difference": 1},
+        ]
+    )
+
+    ranked = rank_group_table(table, rng=np.random.default_rng(1))
+
+    assert list(ranked["team"]) == ["Alpha", "Beta"]
+
+
+def test_ranking_uses_simple_head_to_head_tie_break() -> None:
+    table = pd.DataFrame(
+        [
+            {"group": "A", "team": "Alpha", "points": 4, "goals_for": 3, "goal_difference": 1},
+            {"group": "A", "team": "Beta", "points": 4, "goals_for": 3, "goal_difference": 1},
+        ]
+    )
+    group_matches = pd.DataFrame(
+        [
+            {
+                "group": "A",
+                "team_a": "Alpha",
+                "team_b": "Beta",
+                "team_a_goals": 1,
+                "team_b_goals": 0,
+            }
+        ]
+    )
+
+    ranked = rank_group_table(
+        table,
+        rng=np.random.default_rng(1),
+        group_matches=group_matches,
+    )
+
+    assert list(ranked["team"]) == ["Alpha", "Beta"]
+
+
+def test_third_place_ranking_uses_points_goal_difference_goals_for() -> None:
+    third_place_teams = pd.DataFrame(
+        [
+            {"group": "A", "team": "Alpha", "points": 4, "goal_difference": 1, "goals_for": 2},
+            {"group": "B", "team": "Beta", "points": 4, "goal_difference": 2, "goals_for": 1},
+            {"group": "C", "team": "Gamma", "points": 4, "goal_difference": 2, "goals_for": 3},
+        ]
+    )
+
+    ranked = rank_third_place_teams(third_place_teams, rng=np.random.default_rng(1))
+
+    assert list(ranked["team"]) == ["Gamma", "Beta", "Alpha"]
+
+
+def test_eight_best_third_place_teams_advance_in_twelve_group_scenario() -> None:
+    rows = []
+    for group_index in range(12):
+        group = chr(ord("A") + group_index)
+        teams = [f"{group}{team_index}" for team_index in range(1, 5)]
+        outcomes = [
+            (teams[0], teams[1], "team_a_win"),
+            (teams[0], teams[2], "team_a_win"),
+            (teams[0], teams[3], "team_a_win"),
+            (teams[1], teams[2], "team_a_win"),
+            (teams[1], teams[3], "team_a_win"),
+            (teams[2], teams[3], "team_a_win"),
+        ]
+        for match_index, (team_a, team_b, outcome) in enumerate(outcomes):
+            probabilities = {
+                "team_a_win": (1.0, 0.0, 0.0),
+                "draw": (0.0, 1.0, 0.0),
+                "team_b_win": (0.0, 0.0, 1.0),
+            }[outcome]
+            rows.append(
+                {
+                    "match_id": f"{group}_{match_index}",
+                    "group": group,
+                    "team_a": team_a,
+                    "team_b": team_b,
+                    "p_team_a_win": probabilities[0],
+                    "p_draw": probabilities[1],
+                    "p_team_b_win": probabilities[2],
+                }
+            )
+
+    result = simulate_group_stage(
+        pd.DataFrame(rows),
+        n_simulations=1,
+        random_seed=42,
+        top_n_per_group=2,
+        include_best_third_place=True,
+        n_best_third_place=8,
+    )
+
+    assert int(result["best_third_place_advanced"].sum()) == 8
+    assert int(result["advanced"].sum()) == 32
 
 
 def test_simulation_script_writes_no_files_by_default(

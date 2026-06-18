@@ -66,6 +66,26 @@ Fixture predictions now use explicit forecast-mode metadata:
 The default mode is `backfilled_ex_ante` if prediction generation happens after
 any fixture date in the file; otherwise it is `pre_tournament`.
 
+## Display Status Guardrail
+
+The dashboard display layer must join fixtures, predictions, and completed
+results before rendering match rows. It should assign each fixture one explicit
+display status:
+
+- `completed`: a verified result exists in `results_2026.csv`.
+- `scheduled`: no result exists and prediction probabilities are available.
+- `prediction_missing`: neither a completed result nor a prediction row is
+  available.
+
+Completed matches should show actual scores and actual result first. Model
+probabilities for completed matches may remain available for prediction audit,
+but they should be labeled as audit probabilities, not current forecasts.
+Backfilled ex-ante rows should clearly state that they were reconstructed after
+the fact and are not true live predictions.
+
+Only scheduled matches without completed results should be displayed as current
+predictions.
+
 ## 2026 World Cup Neutral Defaults
 
 For future 2026 World Cup fixtures, missing `neutral` or `is_neutral` values default to neutral. This prevents the selected historical home-adjustment parameter from being blindly applied to World Cup matches.
