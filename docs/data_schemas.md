@@ -1,6 +1,6 @@
 # Data Schemas
 
-These are proposed schemas for local CSV files used by the tournament-state and prediction-audit layers. They define structure only; this milestone does not implement ingestion, scraping, APIs, modeling, or simulation.
+These are schemas for local CSV files used by the tournament-state, prediction, and prediction-audit layers. They do not imply scraping, APIs, paid data, or automatic downloads.
 
 ## `data/tournament/fixtures_2026.csv`
 
@@ -10,16 +10,27 @@ One row per scheduled 2026 World Cup match.
 | --- | --- | --- |
 | `match_id` | string | Stable unique match identifier. |
 | `match_date` | date | Match date in `YYYY-MM-DD` format. |
-| `kickoff_time_local` | string | Local kickoff time, preferably ISO-like with timezone noted when available. |
-| `kickoff_time_utc` | timestamp | UTC kickoff timestamp for ordering and pre-match logging checks. |
-| `group` | string | Group label, if applicable. Blank for knockout matches if not applicable. |
+| `group` | string | Group label. Required for group-stage fixtures. |
 | `stage` | string | Tournament stage, such as `group`, `round_of_32`, `round_of_16`, `quarterfinal`, `semifinal`, `third_place`, or `final`. |
 | `team_a` | string | Team listed as Team A for modeling and display. |
 | `team_b` | string | Team listed as Team B for modeling and display. |
+| `kickoff_time` | string | Optional local kickoff time or timestamp if maintained manually. |
 | `venue` | string | Stadium or venue name. |
 | `city` | string | Host city. |
 | `country` | string | Host country. |
-| `status` | string | Fixture state, such as `scheduled`, `in_progress`, `completed`, `postponed`, or `cancelled`. |
+| `neutral` | boolean | Optional neutral-site flag. Defaults to neutral for 2026 fixtures if omitted. |
+| `is_neutral` | boolean | Optional canonical neutral-site flag. Takes precedence over `neutral` if present. |
+| `source` | string | Optional source note for manually maintained rows. |
+| `last_updated` | date/timestamp | Optional manual maintenance timestamp. |
+
+Validation rules:
+
+- `match_id` must be unique.
+- `match_date` must parse as a date.
+- `team_a` and `team_b` must be non-null and different.
+- `group` must be present for group-stage fixtures.
+- Future 2026 World Cup fixtures default to neutral if no neutral flag is present.
+- Generic historical home advantage should not be assumed for World Cup fixtures.
 
 ## `data/tournament/results_2026.csv`
 

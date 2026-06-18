@@ -20,6 +20,7 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Tournament-specific baseline backtesting script and methodology.
 - Scheduled-fixture forecast output layer.
 - First group-stage Monte Carlo simulation layer.
+- Manually maintained 2026 fixture ingestion and prediction-generation plumbing.
 
 ## Current Selected Baseline
 
@@ -46,8 +47,8 @@ After each variant:
 
 ## Tournament Forecasting Roadmap
 
-- Implement manually maintained 2026 fixtures/results ingestion.
-- Generate match-level predictions for known fixtures.
+- Fill `data/tournament/fixtures_2026.csv` with manually maintained official fixture rows.
+- Generate `data/tournament/fixture_predictions_2026.csv` for known fixtures.
 - Extend Monte Carlo simulation from group-stage only to knockout brackets.
 - Output group qualification, knockout advancement, finalist, and champion probabilities.
 - Distinguish pre-tournament, live, and backfilled forecasts.

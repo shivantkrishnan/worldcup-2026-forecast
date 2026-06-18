@@ -2,6 +2,8 @@
 
 The first forecast output layer turns scheduled fixtures into model-ready feature rows, trains the selected baseline in memory, and returns full 3-class match probabilities.
 
+Fixture rows come from the manually maintained local tournament file `data/tournament/fixtures_2026.csv`. That file is separate from historical training data and is validated before predictions are generated.
+
 ## Probability Output
 
 The model-facing output is always the full probability vector:
@@ -59,3 +61,5 @@ This layer prepares the project for Monte Carlo tournament simulation by produci
 The simulator can later consume these probabilities directly for group-stage and knockout-path draws without retraining the model or rebuilding feature logic.
 
 The first simulator now consumes these probability rows for group-stage simulations. It samples the full 3-class distribution, not just the favorite, which lets draws affect group standings naturally.
+
+`scripts/generate_fixture_predictions.py` can print predictions or, only when `--output` is supplied, write `data/tournament/fixture_predictions_2026.csv` for the simulation script. No model artifacts or processed feature files are written by default.

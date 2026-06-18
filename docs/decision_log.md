@@ -442,3 +442,17 @@ Fixture-level probabilities are useful on their own, but tournament forecasting 
 ### Implications for Modeling/Product
 
 The simulator consumes full 3-class fixture probabilities, samples W/D/L outcomes, and runs in memory without writing simulation files. Because the current model does not predict scores, tie-breakers are simplified to points, wins, and a seeded random placeholder. Official goal-difference and FIFA tie-break rules remain future work.
+
+## 2026-06-18
+
+### Decision
+
+Use a manually maintained `data/tournament/fixtures_2026.csv` file as the first real 2026 fixture source.
+
+### Rationale
+
+The project needs real scheduled fixtures for prediction and simulation, but scraping, APIs, and paid providers are intentionally out of scope. A validated local CSV keeps tournament-state ingestion transparent and reviewable.
+
+### Implications for Modeling/Product
+
+Fixture data remains separate from historical model training data. Predictions are generated from the selected baseline without retraining on 2026 World Cup matches. The generator prints predictions by default and writes `fixture_predictions_2026.csv` only when `--output` is explicitly provided.

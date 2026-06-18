@@ -1,5 +1,6 @@
 from src.utils.config import (
     DEFAULT_TRAINING_CUTOFF_DATE,
+    FIXTURE_PREDICTIONS_2026_PATH,
     FIXTURES_2026_PATH,
     PROJECT_NAME,
     RAW_RESULTS_PATH,
@@ -18,4 +19,7 @@ def test_project_name() -> None:
 def test_data_paths() -> None:
     assert RAW_RESULTS_PATH == "data/raw/results.csv"
     assert FIXTURES_2026_PATH == "data/tournament/fixtures_2026.csv"
+    assert FIXTURE_PREDICTIONS_2026_PATH == (
+        "data/tournament/fixture_predictions_2026.csv"
+    )
     assert RESULTS_2026_PATH == "data/tournament/results_2026.csv"

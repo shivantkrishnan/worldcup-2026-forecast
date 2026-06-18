@@ -107,6 +107,18 @@ python scripts/predict_sample_fixtures.py
 
 The prediction script trains the selected baseline in memory, builds leakage-safe fixture feature rows, and prints full 3-class probabilities plus a favorite display. It does not write model artifacts or processed feature files by default.
 
+Generate predictions from manually maintained 2026 fixtures:
+
+```bash
+python scripts/generate_fixture_predictions.py
+```
+
+This requires `data/tournament/fixtures_2026.csv`. By default it prints predictions only. To write the simulation input explicitly:
+
+```bash
+python scripts/generate_fixture_predictions.py --output data/tournament/fixture_predictions_2026.csv
+```
+
 Run a group-stage Monte Carlo simulation:
 
 ```bash
@@ -131,6 +143,7 @@ The current baseline selection is summarized in `docs/model_selection_report.md`
 
 The scheduled-fixture forecast output design is documented in `docs/forecast_output_design.md`.
 The group-stage simulation design is documented in `docs/tournament_simulation.md`.
+Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
 
 ## Project Status / Roadmap
 
@@ -188,6 +201,8 @@ data/tournament/results_2026.csv
 ```
 
 Use manually maintained, FIFA-sourced fixture and result files for current tournament state. Completed 2026 World Cup matches may be used for standings, evaluation, prediction audit, and live simulation state, but they must not be used to train the first baseline model.
+
+Use `docs/fixtures_2026_template.md` for the fixture CSV header. Do not commit fake official fixture data.
 
 ## Forecasting Modes
 

@@ -26,6 +26,8 @@ data/tournament/
 
 Historical match data is used for baseline training. Current tournament data is used for standings, tournament state, prediction audit, and live simulations, but not for first-baseline training.
 
+The first tournament-state ingestion layer expects a manually maintained `data/tournament/fixtures_2026.csv`. It is validated separately from the historical training data and can be used to generate fixture predictions without retraining on 2026 World Cup results.
+
 ## Canonical Match Schema
 
 Raw historical rows use `home_team` and `away_team`. Cleaned canonical rows use `team_a` and `team_b`.
@@ -117,6 +119,8 @@ The first tournament-specific validation over the 2002 through 2022 FIFA World C
 Based on the completed single-holdout and rolling-origin results, sigmoid-calibrated logistic regression is the current selected model family. The selected feature set now includes leakage-safe rolling team-form plus pre-match Elo features.
 
 The first forecast output layer trains this selected baseline in memory and produces scheduled-fixture probabilities without requiring fixture scores or outcomes. Fixture features use only completed matches strictly before the fixture date; with date-only timestamps, same-date completed matches are excluded unless a future timestamped system proves they occurred earlier.
+
+Fixture prediction generation can print predictions or explicitly write `data/tournament/fixture_predictions_2026.csv` when requested. Written prediction rows include model/training metadata so later prediction audit can distinguish model version, training cutoff, and feature cutoff.
 
 The first Monte Carlo simulation layer consumes fixture-level probabilities and simulates group-stage outcomes only. It samples `team_a_win`, `draw`, or `team_b_win`, awards points, and estimates group-winner/top-two/advancement probabilities. Because scorelines are not modeled yet, group ranking currently uses points, wins, and a seeded random tie-break placeholder rather than official goal-difference tie-break rules.
 

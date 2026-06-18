@@ -14,9 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.simulation.tournament import (  # noqa: E402
     simulate_group_stage,
     summarize_advancement_probabilities,
+    validate_fixture_probability_table,
 )
+from src.utils.config import FIXTURE_PREDICTIONS_2026_PATH  # noqa: E402
 
-FIXTURE_PREDICTIONS_PATH = Path("data/tournament/fixture_predictions_2026.csv")
+FIXTURE_PREDICTIONS_PATH = Path(FIXTURE_PREDICTIONS_2026_PATH)
 DEFAULT_SIMULATION_COUNT = 1000
 
 
@@ -86,7 +88,7 @@ def _load_fixture_predictions() -> tuple[pd.DataFrame, str]:
     """Load local fixture predictions or return a synthetic fallback."""
     if FIXTURE_PREDICTIONS_PATH.exists():
         return (
-            pd.read_csv(FIXTURE_PREDICTIONS_PATH),
+            validate_fixture_probability_table(pd.read_csv(FIXTURE_PREDICTIONS_PATH)),
             f"Loaded fixture predictions from {FIXTURE_PREDICTIONS_PATH}.",
         )
     return (

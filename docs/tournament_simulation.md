@@ -2,6 +2,14 @@
 
 The first tournament simulation layer consumes fixture-level match probabilities and estimates group-stage advancement probabilities with Monte Carlo sampling.
 
+When available, fixture probabilities are loaded from:
+
+```text
+data/tournament/fixture_predictions_2026.csv
+```
+
+That file is generated explicitly from the manually maintained fixture file and selected baseline model. If it is missing, the simulation script uses a synthetic example only for smoke testing.
+
 ## Why Fixture Probabilities Feed Simulation
 
 Tournament outcomes are paths through many uncertain matches. A deterministic favorite list cannot represent that uncertainty. Fixture probabilities let the simulator sample many plausible group-stage worlds and count how often each team wins its group, finishes in the top two, or advances.
@@ -64,7 +72,7 @@ Implemented:
 
 Not implemented yet:
 
-- Official 2026 group structure and fixture ingestion.
+- Official 2026 group structure and completed fixture file.
 - Scoreline or goal-difference simulation.
 - Official FIFA tie-break rules.
 - Knockout bracket simulation.
@@ -75,7 +83,8 @@ Not implemented yet:
 
 Next steps before a complete tournament simulator:
 
-- Add or maintain real 2026 fixture predictions at `data/tournament/fixture_predictions_2026.csv`.
+- Add or maintain real 2026 fixtures at `data/tournament/fixtures_2026.csv`.
+- Generate real fixture predictions at `data/tournament/fixture_predictions_2026.csv`.
 - Add a scoreline or goal-difference model.
 - Implement official group tie-break rules.
 - Build knockout bracket simulation.
