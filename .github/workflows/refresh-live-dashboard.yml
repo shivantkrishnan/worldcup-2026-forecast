@@ -1,0 +1,69 @@
+name: Refresh live dashboard data
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Restore private historical training CSV
+        env:
+          RAW_RESULTS_CSV_URL: ${{ secrets.RAW_RESULTS_CSV_URL }}
+        run: |
+          if [ -z "$RAW_RESULTS_CSV_URL" ]; then
+            echo "::error::RAW_RESULTS_CSV_URL is required because raw historical training data is intentionally uncommitted."
+            echo "::error::Point it to a private copy of the manually downloaded data/raw/results.csv file."
+            exit 1
+          fi
+          mkdir -p data/raw
+          curl --fail --location "$RAW_RESULTS_CSV_URL" --output data/raw/results.csv
+
+      - name: Refresh public demo snapshot
+        run: python scripts/refresh_public_demo_snapshot.py
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Compile Streamlit app
+        run: python -m py_compile app/streamlit_app.py
+
+      - name: Check dashboard data changes
+        id: dashboard_changes
+        run: |
+          if git diff --quiet -- data/tournament/results_2026.csv data/tournament/fixture_predictions_2026_live.csv; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No dashboard data changes."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Dashboard data changed:"
+            git status --short -- data/tournament/results_2026.csv data/tournament/fixture_predictions_2026_live.csv
+          fi
+
+      - name: Commit and push dashboard data
+        if: steps.dashboard_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/tournament/results_2026.csv data/tournament/fixture_predictions_2026_live.csv
+          git commit -m "Refresh live World Cup dashboard data"
+          git push
