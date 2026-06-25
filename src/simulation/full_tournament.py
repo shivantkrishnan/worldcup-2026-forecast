@@ -62,6 +62,20 @@ FULL_TOURNAMENT_SUMMARY_COLUMNS = [
     "best_third_place_advance_prob",
     "advance_from_group_prob",
 ]
+TRACE_ROUND_PREFIXES = {
+    ROUND_OF_32: "round_of_32",
+    ROUND_OF_16: "round_of_16",
+    QUARTERFINAL: "quarterfinal",
+    SEMIFINAL: "semifinal",
+    FINAL: "final",
+}
+REACH_COLUMNS_BY_ROUND = {
+    ROUND_OF_32: "reached_round_of_16",
+    ROUND_OF_16: "reached_quarterfinal",
+    QUARTERFINAL: "reached_semifinal",
+    SEMIFINAL: "reached_final",
+    FINAL: "won_tournament",
+}
 
 
 @dataclass(frozen=True)
@@ -71,6 +85,14 @@ class KnockoutProbabilitySource:
     probabilities: pd.DataFrame
     source_label: str
     caveat: str
+
+
+@dataclass(frozen=True)
+class FullTournamentSimulationOutput:
+    """Full-tournament summary plus optional path-level simulation traces."""
+
+    summary: pd.DataFrame
+    traces: pd.DataFrame
 
 
 def knockout_advancement_probabilities(
@@ -485,6 +507,75 @@ def _simulate_knockout_match(
     }
 
 
+def _empty_knockout_trace_fields() -> dict[str, object]:
+    """Return empty per-round trace fields for one team/simulation."""
+    fields: dict[str, object] = {}
+    for prefix in TRACE_ROUND_PREFIXES.values():
+        fields[f"{prefix}_opponent"] = pd.NA
+        fields[f"{prefix}_team_advance_prob"] = np.nan
+        fields[f"{prefix}_opponent_advance_prob"] = np.nan
+        fields[f"{prefix}_advanced"] = False
+    return fields
+
+
+def _initial_trace_records(
+    group_results: pd.DataFrame,
+    simulation_id: int,
+) -> dict[str, dict[str, object]]:
+    """Return one trace record per team after group-stage resolution."""
+    records: dict[str, dict[str, object]] = {}
+    for row in group_results.itertuples(index=False):
+        team = str(getattr(row, "team"))
+        group_rank = int(getattr(row, "group_rank"))
+        advanced = bool(getattr(row, "advanced"))
+        best_third = bool(getattr(row, "best_third_place_advanced"))
+        records[team] = {
+            "simulation_id": simulation_id,
+            "team": team,
+            "group": str(getattr(row, "group")),
+            "final_group_position": group_rank,
+            "group_winner": group_rank == 1,
+            "top_two": group_rank <= 2,
+            "best_third_place_advanced": best_third,
+            "advance_from_group": advanced,
+            "reached_round_of_32": advanced,
+            "reached_round_of_16": False,
+            "reached_quarterfinal": False,
+            "reached_semifinal": False,
+            "reached_final": False,
+            "won_tournament": False,
+            **_empty_knockout_trace_fields(),
+        }
+    return records
+
+
+def _record_knockout_trace(
+    trace_records: dict[str, dict[str, object]] | None,
+    match: BracketMatch,
+    match_result: dict[str, object],
+) -> None:
+    """Record opponent/probability trace fields for both match participants."""
+    if trace_records is None:
+        return
+
+    prefix = TRACE_ROUND_PREFIXES[match.round_name]
+    team_a = str(match_result["team_a"])
+    team_b = str(match_result["team_b"])
+    winner = str(match_result["winner"])
+    p_team_a_advance = float(match_result["p_team_a_advance"])
+    p_team_b_advance = float(match_result["p_team_b_advance"])
+
+    trace_records[team_a][f"{prefix}_opponent"] = team_b
+    trace_records[team_a][f"{prefix}_team_advance_prob"] = p_team_a_advance
+    trace_records[team_a][f"{prefix}_opponent_advance_prob"] = p_team_b_advance
+    trace_records[team_a][f"{prefix}_advanced"] = winner == team_a
+
+    trace_records[team_b][f"{prefix}_opponent"] = team_a
+    trace_records[team_b][f"{prefix}_team_advance_prob"] = p_team_b_advance
+    trace_records[team_b][f"{prefix}_opponent_advance_prob"] = p_team_a_advance
+    trace_records[team_b][f"{prefix}_advanced"] = winner == team_b
+
+
 def simulate_full_tournament_once(
     fixtures: pd.DataFrame,
     knockout_probabilities: pd.DataFrame,
@@ -492,6 +583,26 @@ def simulate_full_tournament_once(
     scoreline_distributions: dict[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """Simulate one full tournament and return team-level reach flags."""
+    team_results, _ = _simulate_full_tournament_once_with_optional_traces(
+        fixtures,
+        knockout_probabilities,
+        rng,
+        simulation_id=1,
+        scoreline_distributions=scoreline_distributions,
+        collect_traces=False,
+    )
+    return team_results
+
+
+def _simulate_full_tournament_once_with_optional_traces(
+    fixtures: pd.DataFrame,
+    knockout_probabilities: pd.DataFrame,
+    rng: np.random.Generator,
+    simulation_id: int,
+    scoreline_distributions: dict[str, pd.DataFrame] | None = None,
+    collect_traces: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Simulate one full tournament and optionally return path traces."""
     group_results = simulate_group_stage_once(
         fixtures,
         rng=rng,
@@ -502,6 +613,11 @@ def simulate_full_tournament_once(
     )
     lookup = _probability_lookup(knockout_probabilities)
     team_records = {}
+    trace_records = (
+        _initial_trace_records(group_results, simulation_id)
+        if collect_traces
+        else None
+    )
     for row in group_results.itertuples(index=False):
         team = str(getattr(row, "team"))
         group_rank = int(getattr(row, "group_rank"))
@@ -538,8 +654,12 @@ def simulate_full_tournament_once(
             rng,
         )
         winner = str(match_result["winner"])
+        _record_knockout_trace(trace_records, match_config, match_result)
         winners_by_match[int(row.match_number)] = winner
-        team_records[winner][_next_round_reached(ROUND_OF_32)] = True
+        reach_column = _next_round_reached(ROUND_OF_32)
+        team_records[winner][reach_column] = True
+        if trace_records is not None:
+            trace_records[winner][REACH_COLUMNS_BY_ROUND[ROUND_OF_32]] = True
 
     downstream_matches = [
         match for match in get_knockout_matches() if match.round_name != ROUND_OF_32
@@ -549,10 +669,15 @@ def simulate_full_tournament_once(
         team_b = _resolve_match_winner_slot(match.slot_b, winners_by_match)
         match_result = _simulate_knockout_match(match, team_a, team_b, lookup, rng)
         winner = str(match_result["winner"])
+        _record_knockout_trace(trace_records, match, match_result)
         winners_by_match[match.match_number] = winner
-        team_records[winner][_next_round_reached(match.round_name)] = True
+        reach_column = _next_round_reached(match.round_name)
+        team_records[winner][reach_column] = True
+        if trace_records is not None:
+            trace_records[winner][REACH_COLUMNS_BY_ROUND[match.round_name]] = True
 
-    return pd.DataFrame(team_records.values())
+    trace_frame = pd.DataFrame(trace_records.values()) if trace_records is not None else None
+    return pd.DataFrame(team_records.values()), trace_frame
 
 
 def simulate_full_tournament(
@@ -561,8 +686,9 @@ def simulate_full_tournament(
     n_simulations: int = 1000,
     random_seed: int = 42,
     scoreline_distributions: dict[str, pd.DataFrame] | None = None,
-) -> pd.DataFrame:
-    """Run full-tournament simulations and return team-level probabilities."""
+    collect_traces: bool = False,
+) -> pd.DataFrame | FullTournamentSimulationOutput:
+    """Run full-tournament simulations and return probabilities or traces."""
     if n_simulations <= 0:
         raise ValueError("n_simulations must be a positive integer.")
     validated_fixtures = validate_fixture_probability_table(fixtures)
@@ -571,15 +697,20 @@ def simulate_full_tournament(
     )
     rng = np.random.default_rng(random_seed)
     simulations: list[pd.DataFrame] = []
+    traces: list[pd.DataFrame] = []
     for simulation_id in range(1, n_simulations + 1):
-        result = simulate_full_tournament_once(
+        result, trace = _simulate_full_tournament_once_with_optional_traces(
             validated_fixtures,
             validated_knockout_probabilities,
             rng=rng,
+            simulation_id=simulation_id,
             scoreline_distributions=scoreline_distributions,
+            collect_traces=collect_traces,
         )
         result["simulation_id"] = simulation_id
         simulations.append(result)
+        if trace is not None:
+            traces.append(trace)
 
     combined = pd.concat(simulations, ignore_index=True)
     grouped = combined.groupby(["team", "group"], sort=True)
@@ -621,8 +752,12 @@ def simulate_full_tournament(
         ),
     ).reset_index()
 
-    return summary[FULL_TOURNAMENT_SUMMARY_COLUMNS].sort_values(
+    summary = summary[FULL_TOURNAMENT_SUMMARY_COLUMNS].sort_values(
         ["champion_prob", "reach_final_prob", "team"],
         ascending=[False, False, True],
         kind="mergesort",
     ).reset_index(drop=True)
+    if collect_traces:
+        trace_frame = pd.concat(traces, ignore_index=True) if traces else pd.DataFrame()
+        return FullTournamentSimulationOutput(summary=summary, traces=trace_frame)
+    return summary

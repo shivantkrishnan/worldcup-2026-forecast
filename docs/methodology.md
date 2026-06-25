@@ -155,12 +155,24 @@ For unplayed fixtures, the simulator samples `team_a_win`, `draw`, or `team_b_wi
 Group ranking now uses points, feasible head-to-head metrics, overall goal difference, goals scored, optional conduct/ranking fields, and seeded random fallback. Third-place ranking uses points, goal difference, goals for, optional conduct/ranking fields, and seeded random fallback. Completed results remain fixed and are never resampled.
 
 The knockout layer assigns the top two teams in each group plus the eight best
-third-place teams to the Round of 32. The Round-of-32 slot pools are encoded
-from the published 2026 schedule structure, while the full official Annex C
-third-place combination table remains a future validation task. Regular-time
-draw probability is split evenly between teams for knockout advancement, which
-is a transparent approximation for extra time and penalties rather than a
-separately modeled shootout process.
+third-place teams to the Round of 32. The Round-of-32 slot pools and official
+third-place assignment table are encoded from the FIFA World Cup 26 Regulations,
+Annex C, which lists all 495 valid combinations of eight best third-placed
+groups. Non-eight-group inputs or invalid group labels fail explicitly rather
+than using a deterministic fallback. Regular-time draw probability is split
+evenly between teams for knockout advancement, which is a transparent
+approximation for extra time and penalties rather than a separately modeled
+shootout process.
+
+Champion probability should be interpreted as strength filtered through path
+and uncertainty. A high title probability can come from strong model-implied
+head-to-head probabilities, a high chance of winning the group, a softer
+projected bracket path, or all of those at once. The knockout path explorer
+uses optional simulation traces to decompose each team's path into reach
+probabilities, conditional round transitions, common simulated opponents,
+average model-implied advancement probabilities, and simple path-difficulty
+proxies. Likely opponents are simulation frequencies conditional on reaching a
+round, not fixed scheduled opponents before the bracket is known.
 
 Selection is based primarily on rolling-origin log loss stability. Adding simple Elo improved the selected model's rolling-origin mean log loss from `1.201547` to `1.197724`. The first K/home variant grid selected K=10 with a 50-point non-neutral home adjustment, improving rolling-origin mean log loss further to `1.186855`.
 

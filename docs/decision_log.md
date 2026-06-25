@@ -626,3 +626,57 @@ regular-time draw probability evenly between teams as a transparent first-pass
 extra-time/penalty approximation. The local script can use selected-model
 neutral matchup probabilities when raw historical data is available; the public
 app uses a clearly labeled snapshot-strength fallback when raw data is absent.
+This first-pass bracket-assignment decision was superseded by the 2026-06-25
+Annex C mapping decision below.
+
+## 2026-06-25
+
+### Decision
+
+Replace the deterministic constrained third-place assignment approximation with
+the official FIFA World Cup 26 Annex C third-place assignment table.
+
+### Rationale
+
+The 2026 format advances eight of twelve third-place teams into predefined
+Round-of-32 slots. FIFA Annex C lists all 495 possible combinations of the
+eight best third-placed groups and the correct slot assignment for each. Using
+that table avoids bracket-path distortion that can affect knockout and champion
+probabilities.
+
+### Implications for Modeling/Product
+
+`src/simulation/third_place_assignment_2026.csv` stores the official 495-row
+table extracted from the FIFA World Cup 26 Regulations, Annex C. The knockout
+bracket loader validates that every valid eight-group combination is covered,
+that each assignment uses every qualifying third-place group exactly once, and
+that each group is assigned only to an eligible slot. Invalid group labels or
+non-eight-group inputs fail explicitly; the deterministic constrained fallback
+is no longer used.
+
+## 2026-06-25
+
+### Decision
+
+Add optional full-tournament path traces and a knockout path explorer for
+champion-probability decomposition.
+
+### Rationale
+
+Champion probabilities can look surprising when a team has a strong model
+rating but a difficult bracket, or a softer path but weaker head-to-head
+probabilities. A single title probability does not reveal whether the number is
+driven by group placement, official bracket structure, likely opponents,
+matchup probabilities, or fallback approximation risk.
+
+### Implications for Modeling/Product
+
+The simulator can now retain one trace row per team per simulation with final
+group position, stage reach flags, knockout opponents, model-implied
+advancement probabilities, and simulated round outcomes. The Streamlit
+Simulation page exposes a Knockout Path Explorer with a team selector,
+probability funnel, likely-opponent table, H2H matchup probabilities,
+path-difficulty summary, top-contender comparison, and artifact-risk
+diagnostics. This changes only simulation diagnostics and presentation; it does
+not change the selected model, feature engineering, FIFA Annex C mapping, or
+simulation sampling assumptions.

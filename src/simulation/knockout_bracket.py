@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import pandas as pd
 
@@ -19,11 +21,44 @@ SOURCE_THIRD_PLACE = "third_place"
 SOURCE_MATCH_WINNER = "match_winner"
 
 BRACKET_SOURCE_NOTE = (
-    "Round-of-32 slot pools follow the published FIFA World Cup 26 schedule "
-    "structure. The full Annex C third-place combination table is not encoded "
-    "yet; selected third-place groups are assigned by deterministic constrained "
-    "matching within the allowed slot pools."
+    "Round-of-32 slot pools and third-place assignments follow the FIFA World "
+    "Cup 26 Regulations, Annex C, which lists the 495 possible combinations of "
+    "the eight best third-placed teams."
 )
+FIFA_2026_REGULATIONS_URL = (
+    "https://digitalhub.fifa.com/m/636f5c9c6f29771f/original/"
+    "FWC2026_regulations_EN.pdf"
+)
+# Source: FIFA World Cup 26 Regulations, Annex C. The CSV is the official
+# 495-row third-place assignment table extracted from that public PDF.
+OFFICIAL_THIRD_PLACE_ASSIGNMENT_PATH = Path(__file__).with_name(
+    "third_place_assignment_2026.csv"
+)
+THIRD_PLACE_WINNER_SLOTS = ("1A", "1B", "1D", "1E", "1G", "1I", "1K", "1L")
+THIRD_PLACE_SLOT_TO_MATCH = {
+    "1A": 79,
+    "1B": 85,
+    "1D": 81,
+    "1E": 74,
+    "1G": 82,
+    "1I": 77,
+    "1K": 87,
+    "1L": 80,
+}
+THIRD_PLACE_MATCH_TO_WINNER_SLOT = {
+    match_number: slot for slot, match_number in THIRD_PLACE_SLOT_TO_MATCH.items()
+}
+THIRD_PLACE_SLOT_ALLOWED_GROUPS = {
+    "1A": tuple("CEFHI"),
+    "1B": tuple("EFGIJ"),
+    "1D": tuple("BEFIJ"),
+    "1E": tuple("ABCDF"),
+    "1G": tuple("AEHIJ"),
+    "1I": tuple("CDFGH"),
+    "1K": tuple("DEIJL"),
+    "1L": tuple("EHIJK"),
+}
+OFFICIAL_THIRD_PLACE_COMBINATION_COUNT = 495
 
 
 @dataclass(frozen=True)
@@ -135,17 +170,13 @@ def third_place_slots(
     return slots
 
 
-def assign_third_place_groups_to_slots(
+def _normalize_third_place_group_key(
     qualified_third_groups: list[str] | tuple[str, ...],
-    matches: tuple[BracketMatch, ...] = ROUND_OF_32_MATCHES,
-) -> dict[int, str]:
-    """Assign qualified third-place groups to allowed Round-of-32 slots.
-
-    This is a deterministic constrained-matching approximation. It validates
-    the published slot pools and fails clearly if a selected group combination
-    cannot be assigned without duplicates.
-    """
-    normalized_groups = tuple(sorted({str(group).strip().upper() for group in qualified_third_groups}))
+) -> str:
+    """Return the official Annex C lookup key for third-place group labels."""
+    normalized_groups = tuple(
+        sorted({str(group).strip().upper() for group in qualified_third_groups})
+    )
     if len(normalized_groups) != 8:
         raise ValueError("Exactly 8 third-place groups must be supplied.")
 
@@ -154,47 +185,115 @@ def assign_third_place_groups_to_slots(
         raise ValueError(
             "Unsupported third-place group labels: " + ", ".join(invalid_groups)
         )
+    return "".join(normalized_groups)
 
-    slots = third_place_slots(matches)
-    if len(slots) != 8:
-        raise ValueError("Round-of-32 bracket must contain exactly 8 third-place slots.")
 
-    def backtrack(
-        remaining_slots: list[tuple[int, BracketSlot]],
-        remaining_groups: tuple[str, ...],
-        assignment: dict[int, str],
-    ) -> dict[int, str] | None:
-        if not remaining_slots:
-            return assignment if not remaining_groups else None
-
-        ordered_slots = sorted(
-            remaining_slots,
-            key=lambda item: (
-                len(set(item[1].allowed_third_groups).intersection(remaining_groups)),
-                item[0],
-            ),
-        )
-        match_number, slot = ordered_slots[0]
-        rest_slots = [item for item in remaining_slots if item[0] != match_number]
-        candidates = [
-            group for group in remaining_groups if group in slot.allowed_third_groups
-        ]
-        for group in candidates:
-            next_groups = tuple(item for item in remaining_groups if item != group)
-            next_assignment = {**assignment, match_number: group}
-            result = backtrack(rest_slots, next_groups, next_assignment)
-            if result is not None:
-                return result
-        return None
-
-    assignment = backtrack(slots, normalized_groups, {})
-    if assignment is None:
+def _validate_official_third_place_slot_config(
+    matches: tuple[BracketMatch, ...],
+) -> None:
+    """Verify that the bracket still matches the official Annex C slot layout."""
+    slots_by_match = {
+        match_number: slot for match_number, slot in third_place_slots(matches)
+    }
+    expected_matches = set(THIRD_PLACE_MATCH_TO_WINNER_SLOT)
+    if set(slots_by_match) != expected_matches:
         raise ValueError(
-            "Could not assign qualified third-place groups to Round-of-32 slots "
-            "under the configured slot pools: "
-            + ", ".join(normalized_groups)
+            "Official Annex C third-place mapping is only supported for the "
+            "configured FIFA 2026 Round-of-32 third-place slots."
         )
-    return dict(sorted(assignment.items()))
+
+    for match_number, slot in slots_by_match.items():
+        winner_slot = THIRD_PLACE_MATCH_TO_WINNER_SLOT[match_number]
+        expected_groups = THIRD_PLACE_SLOT_ALLOWED_GROUPS[winner_slot]
+        if tuple(slot.allowed_third_groups) != expected_groups:
+            raise ValueError(
+                "Round-of-32 third-place slot pools no longer match the "
+                f"official Annex C layout for slot {winner_slot}."
+            )
+
+
+@lru_cache(maxsize=1)
+def _official_third_place_assignment_table_cached() -> pd.DataFrame:
+    """Load and validate the official FIFA Annex C assignment table."""
+    table = pd.read_csv(OFFICIAL_THIRD_PLACE_ASSIGNMENT_PATH, dtype=str)
+    required_columns = ["option", "qualified_third_groups", *THIRD_PLACE_WINNER_SLOTS]
+    missing = set(required_columns).difference(table.columns)
+    if missing:
+        raise ValueError(
+            "Missing official third-place assignment columns: "
+            + ", ".join(sorted(missing))
+        )
+
+    table = table[required_columns].copy(deep=True)
+    table["option"] = pd.to_numeric(table["option"], errors="raise").astype(int)
+    table["qualified_third_groups"] = (
+        table["qualified_third_groups"].astype(str).str.strip().str.upper()
+    )
+    for slot in THIRD_PLACE_WINNER_SLOTS:
+        table[slot] = table[slot].astype(str).str.strip().str.upper()
+
+    if len(table) != OFFICIAL_THIRD_PLACE_COMBINATION_COUNT:
+        raise ValueError(
+            "Official Annex C table must contain "
+            f"{OFFICIAL_THIRD_PLACE_COMBINATION_COUNT} combinations."
+        )
+    if table["qualified_third_groups"].duplicated().any():
+        raise ValueError(
+            "Official Annex C table contains duplicate group combinations."
+        )
+
+    for row in table.to_dict("records"):
+        key = str(row["qualified_third_groups"])
+        assignments = [str(row[slot]) for slot in THIRD_PLACE_WINNER_SLOTS]
+        if len(key) != 8 or set(key).difference(GROUPS):
+            raise ValueError(f"Invalid Annex C third-place combination: {key}")
+        if set(assignments) != set(key):
+            raise ValueError(
+                f"Annex C option {row['option']} does not assign exactly its "
+                "qualified third-place groups."
+            )
+        for slot, group in zip(THIRD_PLACE_WINNER_SLOTS, assignments):
+            if group not in THIRD_PLACE_SLOT_ALLOWED_GROUPS[slot]:
+                raise ValueError(
+                    f"Annex C option {row['option']} assigns Group {group} to "
+                    f"unsupported slot {slot}."
+                )
+    return table.sort_values("option", kind="mergesort").reset_index(drop=True)
+
+
+def official_third_place_assignment_table() -> pd.DataFrame:
+    """Return the official FIFA Annex C third-place assignment table."""
+    return _official_third_place_assignment_table_cached().copy(deep=True)
+
+
+@lru_cache(maxsize=1)
+def _official_third_place_assignment_lookup() -> dict[str, dict[int, str]]:
+    """Return lookup from third-place group combination to match assignment."""
+    table = _official_third_place_assignment_table_cached()
+    lookup: dict[str, dict[int, str]] = {}
+    for row in table.to_dict("records"):
+        key = str(row["qualified_third_groups"])
+        lookup[key] = {
+            THIRD_PLACE_SLOT_TO_MATCH[slot]: str(row[slot])
+            for slot in THIRD_PLACE_WINNER_SLOTS
+        }
+    return lookup
+
+
+def assign_third_place_groups_to_slots(
+    qualified_third_groups: list[str] | tuple[str, ...],
+    matches: tuple[BracketMatch, ...] = ROUND_OF_32_MATCHES,
+) -> dict[int, str]:
+    """Assign qualified third-place groups using FIFA World Cup 26 Annex C."""
+    _validate_official_third_place_slot_config(matches)
+    key = _normalize_third_place_group_key(qualified_third_groups)
+    lookup = _official_third_place_assignment_lookup()
+    if key not in lookup:
+        raise ValueError(
+            "No official FIFA Annex C third-place assignment is configured for "
+            f"group combination {key}."
+        )
+    return dict(sorted(lookup[key].items()))
 
 
 def bracket_config_table() -> pd.DataFrame:

@@ -201,6 +201,12 @@ The full-tournament script uses the same fixed-result group-stage state, assigns
 Round-of-32 teams, samples knockout advancement through the final, and prints
 champion/finalist/path probabilities. Knockout draws split regular-time draw
 mass evenly between both teams as a first-pass extra-time/penalty approximation.
+Round-of-32 third-place teams are assigned with the official FIFA World Cup 26
+Annex C table covering all 495 valid best-third-place group combinations.
+The script and Streamlit Simulation page can also retain path traces for
+champion-probability decomposition: group finish, round-by-round reach,
+common simulated opponents, H2H advancement probabilities, and simple path
+difficulty diagnostics.
 When raw historical data is available locally, arbitrary knockout matchups use
 the selected model's neutral fixture feature path; otherwise the public app can
 fall back to a clearly labeled snapshot-strength approximation.

@@ -1,4 +1,4 @@
-from itertools import permutations
+from itertools import combinations, permutations
 
 import numpy as np
 import pandas as pd
@@ -6,6 +6,7 @@ import pytest
 
 from scripts.simulate_tournament import main as simulate_tournament_main
 from src.simulation.full_tournament import (
+    FullTournamentSimulationOutput,
     assign_round_of_32_bracket,
     build_prediction_strength_knockout_probability_table,
     knockout_advancement_probabilities,
@@ -13,15 +14,18 @@ from src.simulation.full_tournament import (
     simulate_full_tournament,
 )
 from src.simulation.knockout_bracket import (
+    OFFICIAL_THIRD_PLACE_COMBINATION_COUNT,
     assign_third_place_groups_to_slots,
     get_round_of_32_matches,
+    official_third_place_assignment_table,
 )
 
 
 GROUPS = list("ABCDEFGHIJKL")
 
 
-def synthetic_group_standings() -> pd.DataFrame:
+def synthetic_group_standings(third_place_groups: set[str] | None = None) -> pd.DataFrame:
+    third_place_groups = third_place_groups or set("ABCDEFGH")
     rows = []
     for group in GROUPS:
         for rank in range(1, 5):
@@ -30,8 +34,8 @@ def synthetic_group_standings() -> pd.DataFrame:
                     "team": f"{group}{rank}",
                     "group": group,
                     "group_rank": rank,
-                    "advanced": rank <= 2 or (rank == 3 and group in set("ABCDEFGH")),
-                    "best_third_place_advanced": rank == 3 and group in set("ABCDEFGH"),
+                    "advanced": rank <= 2 or (rank == 3 and group in third_place_groups),
+                    "best_third_place_advanced": rank == 3 and group in third_place_groups,
                 }
             )
     return pd.DataFrame(rows)
@@ -94,6 +98,76 @@ def test_assign_round_of_32_bracket_has_32_unique_teams() -> None:
     assert teams.nunique() == 32
 
 
+def test_official_third_place_table_covers_all_valid_group_combinations() -> None:
+    table = official_third_place_assignment_table()
+    expected_combinations = {"".join(combo) for combo in combinations(GROUPS, 8)}
+
+    assert len(table) == OFFICIAL_THIRD_PLACE_COMBINATION_COUNT
+    assert set(table["qualified_third_groups"]) == expected_combinations
+
+
+def test_official_third_place_assignments_use_each_qualifier_once() -> None:
+    for combo in combinations(GROUPS, 8):
+        assignment = assign_third_place_groups_to_slots(list(combo))
+
+        assert len(assignment) == 8
+        assert len(set(assignment.values())) == 8
+        assert set(assignment.values()) == set(combo)
+
+
+def test_official_third_place_representative_slot_assignments() -> None:
+    assert assign_third_place_groups_to_slots(list("EFGHIJKL")) == {
+        74: "F",
+        77: "G",
+        79: "E",
+        80: "K",
+        81: "I",
+        82: "H",
+        85: "J",
+        87: "L",
+    }
+    assert assign_third_place_groups_to_slots(list("DFGHIJKL")) == {
+        74: "D",
+        77: "F",
+        79: "H",
+        80: "K",
+        81: "I",
+        82: "J",
+        85: "G",
+        87: "L",
+    }
+    assert assign_third_place_groups_to_slots(list("ABCDEFGH")) == {
+        74: "C",
+        77: "F",
+        79: "H",
+        80: "E",
+        81: "B",
+        82: "A",
+        85: "G",
+        87: "D",
+    }
+
+
+def test_all_official_third_place_combinations_assign_32_unique_teams() -> None:
+    for combo in combinations(GROUPS, 8):
+        bracket = assign_round_of_32_bracket(synthetic_group_standings(set(combo)))
+        teams = pd.concat([bracket["team_a"], bracket["team_b"]], ignore_index=True)
+        third_place_groups = set(
+            pd.concat(
+                [
+                    bracket.loc[bracket["team_a_route"].eq("best_third"), "team_a_group"],
+                    bracket.loc[bracket["team_b_route"].eq("best_third"), "team_b_group"],
+                ],
+                ignore_index=True,
+            )
+        )
+
+        assert len(bracket) == 16
+        assert len(teams) == 32
+        assert teams.nunique() == 32
+        assert third_place_groups == set(combo)
+
+
 def test_assign_round_of_32_preserves_top_two_and_best_third_routes() -> None:
     bracket = assign_round_of_32_bracket(synthetic_group_standings())
     routes = pd.concat([bracket["team_a_route"], bracket["team_b_route"]])
@@ -106,6 +180,11 @@ def test_assign_round_of_32_preserves_top_two_and_best_third_routes() -> None:
 def test_unsupported_third_place_group_fails_clearly() -> None:
     with pytest.raises(ValueError, match="Unsupported third-place group"):
         assign_third_place_groups_to_slots(["A", "B", "C", "D", "E", "F", "G", "Z"])
+
+
+def test_third_place_assignment_requires_exactly_eight_groups() -> None:
+    with pytest.raises(ValueError, match="Exactly 8 third-place groups"):
+        assign_third_place_groups_to_slots(["A", "B", "C", "D", "E", "F", "G"])
 
 
 def test_draw_mass_is_split_evenly_for_advancement() -> None:
@@ -153,6 +232,30 @@ def test_full_tournament_champion_probabilities_sum_to_one() -> None:
     )
 
     assert summary["champion_prob"].sum() == pytest.approx(1.0)
+
+
+def test_full_tournament_trace_output_includes_knockout_opponents() -> None:
+    fixtures = synthetic_group_fixtures()
+    output = simulate_full_tournament(
+        fixtures,
+        knockout_probabilities_for_fixtures(fixtures),
+        n_simulations=2,
+        random_seed=7,
+        collect_traces=True,
+    )
+
+    assert isinstance(output, FullTournamentSimulationOutput)
+    assert not output.traces.empty
+    assert {
+        "round_of_32_opponent",
+        "round_of_16_opponent",
+        "quarterfinal_opponent",
+        "semifinal_opponent",
+        "final_opponent",
+        "round_of_32_team_advance_prob",
+        "round_of_32_opponent_advance_prob",
+        "round_of_32_advanced",
+    }.issubset(output.traces.columns)
 
 
 def test_full_tournament_round_probabilities_are_monotonic() -> None:

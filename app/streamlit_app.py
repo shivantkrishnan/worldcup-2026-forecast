@@ -38,6 +38,14 @@ from src.simulation.full_tournament import (  # noqa: E402
     build_prediction_strength_knockout_probability_table,
     simulate_full_tournament,
 )
+from src.simulation.path_diagnostics import (  # noqa: E402
+    compare_top_contenders,
+    head_to_head_probability_table,
+    matchup_source_label,
+    most_likely_opponents,
+    path_difficulty_summary,
+    summarize_team_path,
+)
 from src.utils.config import (  # noqa: E402
     DEFAULT_TRAINING_CUTOFF_DATE,
     FIXTURE_PREDICTIONS_2026_PATH,
@@ -320,7 +328,7 @@ def cached_full_tournament_simulation(
     predictions: pd.DataFrame,
     results: pd.DataFrame | None,
     n_simulations: int,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     """Run full-tournament simulation with deploy-safe knockout probabilities."""
     if results is not None and not results.empty:
         simulation_fixtures = prepare_simulation_fixture_table(
@@ -353,12 +361,13 @@ def cached_full_tournament_simulation(
         )
 
     scoreline_distributions, scoreline_source = cached_scoreline_distributions()
-    summary = simulate_full_tournament(
+    simulation_output = simulate_full_tournament(
         simulation_fixtures,
         knockout_source.probabilities,
         n_simulations=n_simulations,
         random_seed=42,
         scoreline_distributions=scoreline_distributions,
+        collect_traces=True,
     )
     completed = (
         simulation_fixtures["is_completed"].map(_coerce_bool)
@@ -374,7 +383,12 @@ def cached_full_tournament_simulation(
         "knockout_caveat": knockout_source.caveat,
         "knockout_draw_treatment": "Regular-time draw mass split 50/50",
     }
-    return summary, metadata
+    return (
+        simulation_output.summary,
+        simulation_output.traces,
+        knockout_source.probabilities,
+        metadata,
+    )
 
 
 def _show_setup_block(title: str, body: str, command: str | None = None) -> None:
@@ -433,6 +447,234 @@ def _render_probability_table(summary: pd.DataFrame, sort_column: str, n: int = 
         .pipe(prepare_probability_summary)
     )
     st.dataframe(table, hide_index=True, width="stretch")
+
+
+def _format_probability_columns(
+    table: pd.DataFrame,
+    columns: list[str],
+) -> pd.DataFrame:
+    """Return a copy with selected probability columns formatted."""
+    output = table.copy(deep=True)
+    for column in columns:
+        if column in output.columns:
+            output[column] = output[column].map(format_percent)
+    return output
+
+
+def _render_team_probability_funnel(team_path: dict[str, object]) -> None:
+    """Render selected-team round-by-round reach probabilities."""
+    st.subheader("Round-by-round probability funnel")
+    funnel_columns = st.columns(6)
+    funnel_columns[0].metric(
+        "Advance from group",
+        format_percent(team_path.get("group_advancement_probability")),
+    )
+    funnel_columns[1].metric(
+        "Reach R16",
+        format_percent(team_path.get("reach_round_of_16_probability")),
+    )
+    funnel_columns[2].metric(
+        "Reach QF",
+        format_percent(team_path.get("reach_quarterfinal_probability")),
+    )
+    funnel_columns[3].metric(
+        "Reach SF",
+        format_percent(team_path.get("reach_semifinal_probability")),
+    )
+    funnel_columns[4].metric(
+        "Reach Final",
+        format_percent(team_path.get("reach_final_probability")),
+    )
+    funnel_columns[5].metric(
+        "Champion",
+        format_percent(team_path.get("champion_probability")),
+    )
+
+    transition_table = pd.DataFrame(
+        [
+            {
+                "transition": "R32 to R16",
+                "conditional probability": team_path.get(
+                    "p_reach_round_of_16_given_round_of_32"
+                ),
+            },
+            {
+                "transition": "R16 to QF",
+                "conditional probability": team_path.get(
+                    "p_reach_quarterfinal_given_round_of_16"
+                ),
+            },
+            {
+                "transition": "QF to SF",
+                "conditional probability": team_path.get(
+                    "p_reach_semifinal_given_quarterfinal"
+                ),
+            },
+            {
+                "transition": "SF to Final",
+                "conditional probability": team_path.get(
+                    "p_reach_final_given_semifinal"
+                ),
+            },
+            {
+                "transition": "Final to champion",
+                "conditional probability": team_path.get("p_champion_given_final"),
+            },
+        ]
+    )
+    transition_table = _format_probability_columns(
+        transition_table,
+        ["conditional probability"],
+    )
+    st.dataframe(transition_table, hide_index=True, width="stretch")
+
+
+def _render_opponent_table(opponents: pd.DataFrame) -> None:
+    """Render likely-opponent diagnostics."""
+    st.subheader("Most likely knockout opponents")
+    if opponents.empty:
+        st.info("No knockout opponent traces are available for this team.")
+        return
+    display = opponents[
+        [
+            "round",
+            "opponent",
+            "opponent_frequency",
+            "avg_team_advance_prob",
+            "avg_opponent_advance_prob",
+            "simulated_team_advance_rate",
+        ]
+    ].rename(
+        columns={
+            "round": "Round",
+            "opponent": "Opponent",
+            "opponent_frequency": "Opponent frequency",
+            "avg_team_advance_prob": "Avg team advance prob",
+            "avg_opponent_advance_prob": "Avg opponent advance prob",
+            "simulated_team_advance_rate": "Simulated advance rate",
+        }
+    )
+    display = _format_probability_columns(
+        display,
+        [
+            "Opponent frequency",
+            "Avg team advance prob",
+            "Avg opponent advance prob",
+            "Simulated advance rate",
+        ],
+    )
+    st.dataframe(display, hide_index=True, width="stretch")
+
+
+def _render_head_to_head_table(h2h: pd.DataFrame) -> None:
+    """Render H2H knockout probability diagnostics."""
+    st.subheader("Head-to-head model probabilities")
+    if h2h.empty:
+        st.info("Head-to-head matchup probabilities are unavailable.")
+        return
+    display = h2h.rename(
+        columns={
+            "opponent": "Opponent",
+            "p_selected_team_advances": "Selected team advances",
+            "p_opponent_advances": "Opponent advances",
+            "p_selected_team_regular_time_win": "Regular-time win",
+            "p_regular_time_draw": "Regular-time draw",
+            "p_selected_team_regular_time_loss": "Regular-time loss",
+            "probability_source": "Probability source",
+        }
+    )
+    display = _format_probability_columns(
+        display,
+        [
+            "Selected team advances",
+            "Opponent advances",
+            "Regular-time win",
+            "Regular-time draw",
+            "Regular-time loss",
+        ],
+    )
+    st.dataframe(display, hide_index=True, width="stretch")
+
+
+def _render_contender_comparison(comparison: pd.DataFrame) -> None:
+    """Render top-contender path comparison."""
+    st.subheader("Top contender comparison")
+    if comparison.empty:
+        st.info("Top contender comparison is unavailable for the current traces.")
+        return
+    display = comparison.rename(
+        columns={
+            "team": "Team",
+            "champion_probability": "Champion",
+            "final_probability": "Final",
+            "semifinal_probability": "Semifinal",
+            "quarterfinal_probability": "Quarterfinal",
+            "group_winner_probability": "Group winner",
+            "average_r32_opponent_difficulty": "R32 opp difficulty",
+            "average_r16_opponent_difficulty": "R16 opp difficulty",
+            "average_qf_opponent_difficulty": "QF opp difficulty",
+            "average_sf_opponent_difficulty": "SF opp difficulty",
+            "average_final_opponent_difficulty": "Final opp difficulty",
+            "largest_likely_path_bottleneck": "Likely bottleneck",
+        }
+    )
+    display = _format_probability_columns(
+        display,
+        [
+            "Champion",
+            "Final",
+            "Semifinal",
+            "Quarterfinal",
+            "Group winner",
+            "R32 opp difficulty",
+            "R16 opp difficulty",
+            "QF opp difficulty",
+            "SF opp difficulty",
+            "Final opp difficulty",
+        ],
+    )
+    st.dataframe(display, hide_index=True, width="stretch")
+
+
+def _render_path_artifact_diagnostics(
+    team_path: dict[str, object],
+    difficulty: dict[str, object],
+    knockout_source_label: str,
+) -> None:
+    """Render compact diagnostics for path-vs-artifact interpretation."""
+    st.subheader("What may be driving this title probability")
+    source_note = matchup_source_label(knockout_source_label)
+    diagnostics = [
+        (
+            "Group position",
+            "High group-winner probability creates cleaner knockout paths."
+            if float(team_path.get("group_winner_probability", 0.0) or 0.0) >= 0.5
+            else "Group uncertainty is a meaningful part of this team's path.",
+        ),
+        (
+            "Projected path",
+            "Opponent frequencies come from simulated group finishes plus the official FIFA bracket.",
+        ),
+        (
+            "H2H probabilities",
+            "Average knockout advancement probability summarizes model-implied matchup strength."
+            if difficulty.get("available")
+            else "Knockout matchup traces are not available for this team.",
+        ),
+        (
+            "Model source",
+            source_note,
+        ),
+        (
+            "Knockout caveat",
+            "Regular-time draw mass is split 50/50 for extra time and penalties.",
+        ),
+    ]
+    st.dataframe(
+        pd.DataFrame(diagnostics, columns=["Diagnostic", "Interpretation"]),
+        hide_index=True,
+        width="stretch",
+    )
 
 
 def _render_overview(
@@ -785,11 +1027,107 @@ def _render_teams(
             )
 
 
+def _render_knockout_path_explorer(
+    full_tournament_summary: pd.DataFrame,
+    full_tournament_traces: pd.DataFrame,
+    knockout_probabilities: pd.DataFrame,
+    full_tournament_metadata: dict[str, Any],
+) -> None:
+    """Render an interactive knockout path explorer."""
+    st.subheader("Knockout Path Explorer")
+    st.caption(
+        "Use this to diagnose whether a title probability is coming from group "
+        "position, likely bracket opponents, model-implied matchup strength, or "
+        "the deploy-safe fallback."
+    )
+    if full_tournament_summary.empty or full_tournament_traces.empty:
+        st.info("Path traces are unavailable for the current simulation run.")
+        return
+
+    teams = (
+        full_tournament_summary.sort_values(
+            "champion_prob",
+            ascending=False,
+            kind="mergesort",
+        )["team"]
+        .astype(str)
+        .tolist()
+    )
+    selected_team = st.selectbox(
+        "Team",
+        teams,
+        index=teams.index("Argentina") if "Argentina" in teams else 0,
+        key="knockout_path_team",
+    )
+    team_path = summarize_team_path(full_tournament_traces, selected_team)
+    if not team_path.get("available"):
+        st.warning("No trace rows are available for the selected team.")
+        return
+
+    _render_team_probability_funnel(team_path)
+
+    difficulty = path_difficulty_summary(
+        full_tournament_traces,
+        full_tournament_summary,
+        selected_team,
+    )
+    difficulty_cols = st.columns(4)
+    difficulty_cols[0].metric(
+        "Avg knockout advance prob",
+        format_percent(
+            difficulty.get("average_model_implied_advancement_probability")
+        ),
+    )
+    difficulty_cols[1].metric(
+        "Avg opponent champion prob",
+        format_percent(difficulty.get("average_opponent_champion_probability")),
+    )
+    difficulty_cols[2].metric(
+        "Avg opponent final prob",
+        format_percent(difficulty.get("average_opponent_final_probability")),
+    )
+    difficulty_cols[3].metric(
+        "Expected elite opponents",
+        format_number(difficulty.get("expected_elite_opponents_faced"), 2),
+    )
+
+    st.caption(
+        "Likely opponents are simulation frequencies, not a fixed schedule until "
+        "the bracket slots are known. Opponent difficulty is proxied by the "
+        "opponent's own simulated champion/final probability."
+    )
+
+    opponents = most_likely_opponents(full_tournament_traces, selected_team)
+    _render_opponent_table(opponents)
+
+    h2h = head_to_head_probability_table(
+        selected_team,
+        opponents,
+        knockout_probabilities,
+        source_label=full_tournament_metadata.get("knockout_probability_source"),
+    )
+    _render_head_to_head_table(h2h)
+
+    _render_path_artifact_diagnostics(
+        team_path,
+        difficulty,
+        full_tournament_metadata.get("knockout_probability_source", ""),
+    )
+
+    comparison = compare_top_contenders(
+        full_tournament_traces,
+        full_tournament_summary,
+    )
+    _render_contender_comparison(comparison)
+
+
 def _render_simulation(
     simulation_summary: pd.DataFrame | None,
     simulation_metadata: dict[str, Any] | None,
     full_tournament_summary: pd.DataFrame | None,
     full_tournament_metadata: dict[str, Any] | None,
+    full_tournament_traces: pd.DataFrame | None = None,
+    knockout_probabilities: pd.DataFrame | None = None,
 ) -> None:
     """Render simulation outputs."""
     st.title("Simulation")
@@ -842,6 +1180,19 @@ def _render_simulation(
         )
         if full_tournament_metadata:
             st.info(full_tournament_metadata["knockout_caveat"])
+        if (
+            full_tournament_traces is not None
+            and knockout_probabilities is not None
+            and not full_tournament_traces.empty
+            and not knockout_probabilities.empty
+            and full_tournament_metadata is not None
+        ):
+            _render_knockout_path_explorer(
+                full_tournament_summary,
+                full_tournament_traces,
+                knockout_probabilities,
+                full_tournament_metadata,
+            )
 
     left, right = st.columns(2)
     with left:
@@ -1101,6 +1452,24 @@ def _render_methodology(prediction_metadata: dict[str, str]) -> None:
         because other teams split points in favorable ways.
         </p>
 
+        <h2>Knockout Path Explorer</h2>
+        <p>
+        Champion probability combines team strength, group placement, bracket
+        structure, likely opponents, and knockout randomness. The path explorer
+        keeps optional simulation traces so a team can be decomposed into
+        group-finish probability, round-by-round reach probability, conditional
+        transition probability, common simulated opponents, and model-implied
+        head-to-head advancement probabilities.
+        </p>
+        <p>
+        Likely opponents are not fixed scheduled matchups until the actual
+        bracket is known. They are frequencies from simulated tournament paths
+        under the official FIFA bracket mapping. If the deployed app is using
+        the snapshot-strength fallback instead of the local selected model for
+        arbitrary knockout matchups, the H2H table labels those probabilities
+        as approximate.
+        </p>
+
         <h2>Scoreline Simulation</h2>
         <p>
         The core model predicts win, draw, and loss probabilities, not exact
@@ -1263,6 +1632,8 @@ def main() -> None:
     simulation_metadata: dict[str, Any] | None = None
     full_tournament_summary: pd.DataFrame | None = None
     full_tournament_metadata: dict[str, Any] | None = None
+    full_tournament_traces: pd.DataFrame | None = None
+    knockout_probabilities: pd.DataFrame | None = None
     if predictions is not None:
         try:
             simulation_summary, simulation_metadata = cached_simulation(
@@ -1274,7 +1645,12 @@ def main() -> None:
         except (FileNotFoundError, ValueError) as error:
             st.warning(f"Simulation could not be computed: {error}")
         try:
-            full_tournament_summary, full_tournament_metadata = (
+            (
+                full_tournament_summary,
+                full_tournament_traces,
+                knockout_probabilities,
+                full_tournament_metadata,
+            ) = (
                 cached_full_tournament_simulation(
                     fixtures,
                     predictions,
@@ -1314,6 +1690,8 @@ def main() -> None:
             simulation_metadata,
             full_tournament_summary,
             full_tournament_metadata,
+            full_tournament_traces,
+            knockout_probabilities,
         )
     else:
         _render_methodology(prediction_metadata)
