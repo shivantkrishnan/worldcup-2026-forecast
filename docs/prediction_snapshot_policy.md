@@ -25,6 +25,33 @@ and whether rows are backfilled. It should be refreshed intentionally when
 official results are updated, forecast features change, or the selected model
 changes.
 
+## Automated Refresh
+
+The public Streamlit app is deployed at:
+
+```text
+https://wc2026-forecast.streamlit.app/
+```
+
+Streamlit Community Cloud updates the app after GitHub pushes to `main`. During
+the tournament, `.github/workflows/refresh-live-dashboard.yml` runs on a
+scheduled GitHub Actions cron and can also be started manually with
+`workflow_dispatch`.
+
+The refresh workflow:
+
+- fetches official/source-attributed completed results,
+- updates `data/tournament/results_2026.csv`,
+- regenerates `data/tournament/fixture_predictions_2026_live.csv`,
+- validates that completed fixtures are omitted from live predictions,
+- runs tests and a Streamlit app compile check,
+- commits and pushes only when the dashboard CSVs changed.
+
+Because raw historical training data remains uncommitted, the workflow needs a
+repository secret named `RAW_RESULTS_CSV_URL` pointing to a private copy of the
+manually downloaded `data/raw/results.csv` file. The raw CSV is downloaded only
+inside the GitHub Actions runner and is not committed.
+
 ## What Remains Uncommitted
 
 Raw historical training data remains uncommitted. The historical source file
@@ -46,7 +73,14 @@ results in `results_2026.csv` may condition live standings, audits, and
 simulation state, but they do not retrain the first baseline model.
 
 Future production versions could replace this snapshot with a scheduled
-prediction job, a backend service, or a versioned prediction store. Until then,
-snapshot updates should be intentional, documented by commit history, and made
-only after the relevant source fixtures/results or model code have been
-validated.
+prediction job that uses a private data store, a backend service, or a versioned
+prediction store. Until then, snapshot updates should be intentional, documented
+by commit history, and made only after the relevant source fixtures/results or
+model code have been validated.
+
+## Limitations
+
+The scheduled refresh is not truly real-time. It may lag the final whistle by
+the cron interval, official source availability can fail, and source corrections
+may require manual review. The workflow does not add knockout simulation and
+does not retrain the baseline on completed 2026 World Cup results.

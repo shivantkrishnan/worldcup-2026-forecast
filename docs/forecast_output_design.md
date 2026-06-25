@@ -150,3 +150,28 @@ samples every row from reconstructed probabilities.
 `fixture_predictions_2026.csv` is a reproducible generated output. It should
 remain uncommitted unless the project defines a snapshot/versioning policy for
 prediction files.
+
+## Public Demo Refresh
+
+The public app at `https://wc2026-forecast.streamlit.app/` uses the committed
+live snapshot `data/tournament/fixture_predictions_2026_live.csv`. During the
+tournament, GitHub Actions refreshes this file on a schedule after fetching
+official completed results and regenerating remaining-fixture live predictions.
+
+The refresh is intentionally outside the Streamlit runtime. The app reads
+committed CSV snapshots; it does not scrape, call APIs, or train the model when
+a user opens the page. Streamlit Community Cloud updates after the workflow
+commits changed dashboard CSVs to GitHub.
+
+The refresh workflow validates that:
+
+- completed matches are present in `results_2026.csv`,
+- completed matches are omitted from the live prediction snapshot,
+- remaining live prediction probabilities sum to 1,
+- completed result count plus live prediction count equals the 72 group-stage
+  fixtures,
+- feature cutoff metadata is at least as recent as the latest completed result
+  date.
+
+This process is not truly real-time and can lag final whistle. Official
+source/API downtime or result corrections may require manual review.

@@ -226,6 +226,12 @@ and a methodology section for non-technical and technical readers.
 
 ## Public Streamlit Deployment
 
+The public dashboard is available at:
+
+```text
+https://wc2026-forecast.streamlit.app/
+```
+
 Use Streamlit Community Cloud with:
 
 ```text
@@ -237,6 +243,36 @@ App file: app/streamlit_app.py
 The public deployment uses committed tournament-state/demo files under
 `data/tournament/`. Raw historical training data remains uncommitted and is not
 required for the deployed app to start.
+
+### Automated Live Data Refresh
+
+Live public-demo data is refreshed by the scheduled GitHub Actions workflow:
+
+```text
+.github/workflows/refresh-live-dashboard.yml
+```
+
+The workflow runs every 3 hours and can also be started manually from the
+GitHub Actions tab. It fetches official completed 2026 World Cup results,
+updates `data/tournament/results_2026.csv`, regenerates
+`data/tournament/fixture_predictions_2026_live.csv`, validates the snapshot,
+runs tests, and commits the two dashboard CSVs only when they changed.
+
+Because raw historical training data is intentionally uncommitted, the workflow
+needs a repository secret named `RAW_RESULTS_CSV_URL` pointing to a private copy
+of the manually downloaded `data/raw/results.csv` file. The file is downloaded
+inside CI only and is not committed.
+
+Manual local refresh:
+
+```bash
+python scripts/refresh_public_demo_snapshot.py
+python -m pytest
+python -m py_compile app/streamlit_app.py
+```
+
+This refresh is scheduled, not truly real-time. It can lag final whistle, and
+official source/API availability or data corrections may require manual review.
 
 ## Project Status / Roadmap
 
