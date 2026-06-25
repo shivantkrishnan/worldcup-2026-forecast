@@ -183,6 +183,12 @@ Run a live simulation from remaining-fixture predictions:
 python scripts/simulate_group_stage.py --predictions data/tournament/fixture_predictions_2026_live.csv --results data/tournament/results_2026.csv
 ```
 
+Run a full-tournament simulation with knockout rounds:
+
+```bash
+python scripts/simulate_tournament.py
+```
+
 Compare backfilled ex-ante and live prediction files:
 
 ```bash
@@ -190,6 +196,14 @@ python scripts/compare_prediction_modes.py
 ```
 
 The simulation script uses `data/tournament/fixture_predictions_2026.csv` when present, otherwise it runs a synthetic example. It fixes completed results when available, samples conditional scorelines for unplayed fixtures, prints forecast-mode/backfilled-row metadata and advancement probabilities, and does not write simulation files by default.
+
+The full-tournament script uses the same fixed-result group-stage state, assigns
+Round-of-32 teams, samples knockout advancement through the final, and prints
+champion/finalist/path probabilities. Knockout draws split regular-time draw
+mass evenly between both teams as a first-pass extra-time/penalty approximation.
+When raw historical data is available locally, arbitrary knockout matchups use
+the selected model's neutral fixture feature path; otherwise the public app can
+fall back to a clearly labeled snapshot-strength approximation.
 
 If `data/tournament/results_2026.csv` exists, the simulator validates it and
 fixes completed matches before sampling the remaining fixtures. For a diagnostic
@@ -214,7 +228,7 @@ These notes are intended to become the methodology section of the dashboard or w
 The current baseline selection is summarized in `docs/model_selection_report.md`, and the baseline model card is in `docs/model_card_baseline.md`.
 
 The scheduled-fixture forecast output design is documented in `docs/forecast_output_design.md`.
-The group-stage simulation design is documented in `docs/tournament_simulation.md`.
+The group-stage and full-tournament simulation design is documented in `docs/tournament_simulation.md`.
 Manual tournament fixture ingestion is documented in `docs/tournament_data_ingestion.md`.
 
 Forecast mode and display-status semantics are documented in `docs/forecast_output_design.md`. Completed matches should show actual results; model probabilities for completed matches belong in prediction-audit context. Generated prediction files should remain uncommitted unless a snapshot/versioning policy is explicitly defined. The public demo snapshot policy is documented in `docs/prediction_snapshot_policy.md`.

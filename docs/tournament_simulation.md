@@ -1,6 +1,7 @@
 # Tournament Simulation
 
-The first tournament simulation layer consumes fixture-level match probabilities and estimates group-stage advancement probabilities with Monte Carlo sampling.
+The tournament simulation layer consumes fixture-level match probabilities and
+estimates group-stage and knockout-path probabilities with Monte Carlo sampling.
 
 When available, fixture probabilities are loaded from:
 
@@ -60,6 +61,10 @@ The current live simulation samples approximate scorelines for unplayed matches
 so goal difference and goals scored can affect group and third-place ranking.
 This scoreline layer is for table mechanics only; it is not a separately
 validated goals model.
+
+The full-tournament simulator extends this path after the group stage. It
+assigns Round-of-32 participants, samples knockout winners through the final,
+and reports probabilities for reaching each stage and winning the tournament.
 
 `results_2026.csv` should be maintained from official or clearly
 source-attributed completed results. The current ingestion helper uses FIFA's
@@ -149,9 +154,66 @@ The summary output reports:
 
 If best-third-place qualification is enabled, `advance_prob` can exceed `top_2_prob`.
 
+## Knockout Simulation
+
+The full-tournament simulator currently reports:
+
+- `reach_round_of_32_prob`
+- `reach_round_of_16_prob`
+- `reach_quarterfinal_prob`
+- `reach_semifinal_prob`
+- `reach_final_prob`
+- `champion_prob`
+
+For each Monte Carlo run:
+
+1. Completed group fixtures are fixed from `results_2026.csv`.
+2. Remaining group fixtures are sampled from live prediction probabilities.
+3. Group tables are ranked with the same group-stage rules.
+4. The top two teams in each group and the eight best third-place teams enter
+   the Round of 32.
+5. Knockout matches are sampled through the final.
+
+The Round-of-32 slot pools are encoded in `src/simulation/knockout_bracket.py`
+from the published 2026 schedule structure. The exact FIFA Annex C table for
+all 495 third-place combinations is not encoded yet. Instead, the first version
+uses deterministic constrained matching: each qualified third-place group is
+assigned to exactly one eligible Round-of-32 slot, and the assignment fails
+clearly if no valid mapping exists. This is transparent and reviewable, but it
+should be replaced by the official Annex C mapping before the knockout bracket
+is treated as final.
+
+## Knockout Match Probabilities
+
+Knockout matchups are hypothetical until the bracket is known. Locally, when
+`data/raw/results.csv` is available, `scripts/simulate_tournament.py` can build
+neutral-site arbitrary matchup probabilities with the selected calibrated
+logistic model and the live feature state through the feature cutoff.
+
+The deployed Streamlit app intentionally does not commit raw historical data.
+When raw data is unavailable, the app can still render a first-pass full
+tournament view using a clearly labeled snapshot-strength fallback. That
+fallback derives neutral matchup strength from committed group-stage prediction
+probabilities and completed results. It is not the same as the selected model
+and should be read as a product/demo approximation.
+
+## Knockout Draw Handling
+
+The match model predicts regular-time `team_a_win`, `draw`, and `team_b_win`.
+Knockout advancement needs one team. The first-pass rule is:
+
+```text
+p_team_a_advance = p_team_a_win + 0.5 * p_draw
+p_team_b_advance = p_team_b_win + 0.5 * p_draw
+```
+
+This splits regular-time draw mass evenly between both teams, approximating
+extra time and penalties symmetrically. A future extension should model
+extra-time and penalty-shootout outcomes explicitly.
+
 ## Current Scope
 
-This is not yet a full World Cup simulator.
+This is now a first-pass full World Cup simulator, with documented limitations.
 
 Implemented:
 
@@ -161,13 +223,18 @@ Implemented:
 - Configurable top-N advancement per group.
 - Best-third-place advancement.
 - Official-style group and third-place ranking with documented limitations.
+- Round-of-32 participant assignment.
+- First-pass full knockout simulation through champion.
+- Neutral arbitrary-knockout probability generation locally when raw data is
+  available.
+- Deploy-safe snapshot-strength fallback for public UI rendering.
 - In-memory output only.
 
 Not implemented yet:
 
-- Knockout bracket simulation.
 - Penalty shootout logic.
 - Fully calibrated goals model.
+- Fully official Annex C third-place assignment table.
 - Recursive multi-team tie-break handling.
 - Prediction logging and audit integration.
 
@@ -181,5 +248,7 @@ Next steps before a complete tournament simulator:
 - Generate live remaining-fixture predictions separately, such as
   `data/tournament/fixture_predictions_2026_live.csv`.
 - Validate or improve the scoreline layer with historical tournament scorelines.
-- Build knockout bracket simulation.
+- Replace deterministic third-place constrained matching with the official
+  Annex C mapping table.
+- Validate knockout probabilities with prior tournament backtests.
 - Integrate prediction logging and post-result audit.

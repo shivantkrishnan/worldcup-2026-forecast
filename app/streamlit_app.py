@@ -22,6 +22,7 @@ from src.presentation.dashboard import (  # noqa: E402
     format_number,
     format_percent,
     get_teams_from_fixtures,
+    prepare_full_tournament_summary,
     prepare_match_table,
     prepare_probability_summary,
 )
@@ -31,6 +32,11 @@ from src.simulation.tournament import (  # noqa: E402
     simulate_group_stage,
     summarize_advancement_probabilities,
     validate_fixture_probability_table,
+)
+from src.simulation.full_tournament import (  # noqa: E402
+    build_model_based_knockout_probability_table,
+    build_prediction_strength_knockout_probability_table,
+    simulate_full_tournament,
 )
 from src.utils.config import (  # noqa: E402
     DEFAULT_TRAINING_CUTOFF_DATE,
@@ -294,6 +300,83 @@ def cached_simulation(
     return summary, metadata
 
 
+def _feature_cutoff_date(predictions: pd.DataFrame, results: pd.DataFrame | None) -> str | None:
+    """Return the latest feature cutoff date implied by prediction/result data."""
+    if predictions is not None and not predictions.empty and "feature_cutoff_date" in predictions:
+        values = pd.to_datetime(
+            predictions["feature_cutoff_date"],
+            errors="coerce",
+        ).dropna()
+        if not values.empty:
+            return str(values.max().date())
+    if results is not None and not results.empty:
+        return str(pd.to_datetime(results["match_date"], errors="raise").max().date())
+    return None
+
+
+@st.cache_data(show_spinner="Running full-tournament simulation...")
+def cached_full_tournament_simulation(
+    fixtures: pd.DataFrame,
+    predictions: pd.DataFrame,
+    results: pd.DataFrame | None,
+    n_simulations: int,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Run full-tournament simulation with deploy-safe knockout probabilities."""
+    if results is not None and not results.empty:
+        simulation_fixtures = prepare_simulation_fixture_table(
+            fixtures,
+            predictions,
+            results,
+        )
+    else:
+        if len(predictions) < len(fixtures):
+            raise ValueError(
+                "Remaining-only live prediction files require results_2026.csv "
+                "so completed fixtures can be fixed."
+            )
+        simulation_fixtures = validate_fixture_probability_table(predictions)
+
+    feature_cutoff_date = _feature_cutoff_date(predictions, results)
+    try:
+        training_matches = load_baseline_training_matches()
+        knockout_source = build_model_based_knockout_probability_table(
+            training_matches,
+            fixtures,
+            completed_results=results,
+            feature_cutoff_date=feature_cutoff_date,
+        )
+    except FileNotFoundError:
+        knockout_source = build_prediction_strength_knockout_probability_table(
+            fixtures,
+            predictions,
+            results=results,
+        )
+
+    scoreline_distributions, scoreline_source = cached_scoreline_distributions()
+    summary = simulate_full_tournament(
+        simulation_fixtures,
+        knockout_source.probabilities,
+        n_simulations=n_simulations,
+        random_seed=42,
+        scoreline_distributions=scoreline_distributions,
+    )
+    completed = (
+        simulation_fixtures["is_completed"].map(_coerce_bool)
+        if "is_completed" in simulation_fixtures.columns
+        else pd.Series([False] * len(simulation_fixtures), index=simulation_fixtures.index)
+    )
+    metadata = {
+        "n_simulations": n_simulations,
+        "fixed_completed_matches": int(completed.sum()),
+        "sampled_remaining_matches": int((~completed).sum()),
+        "scoreline_source": scoreline_source,
+        "knockout_probability_source": knockout_source.source_label,
+        "knockout_caveat": knockout_source.caveat,
+        "knockout_draw_treatment": "Regular-time draw mass split 50/50",
+    }
+    return summary, metadata
+
+
 def _show_setup_block(title: str, body: str, command: str | None = None) -> None:
     """Render a clear setup message."""
     st.warning(title)
@@ -359,6 +442,8 @@ def _render_overview(
     display_table: pd.DataFrame,
     simulation_summary: pd.DataFrame | None,
     simulation_metadata: dict[str, Any] | None,
+    full_tournament_summary: pd.DataFrame | None,
+    full_tournament_metadata: dict[str, Any] | None,
 ) -> None:
     """Render the dashboard overview."""
     st.title("World Cup 2026 Forecasting Dashboard")
@@ -432,6 +517,42 @@ def _render_overview(
     if simulation_summary is None or simulation_summary.empty:
         st.info("Simulation outputs are unavailable until prediction data can be loaded.")
         return
+
+    if full_tournament_summary is not None and not full_tournament_summary.empty:
+        st.subheader("Tournament title picture")
+        left, right = st.columns(2)
+        with left:
+            st.caption("Champion probability leaders")
+            st.dataframe(
+                prepare_full_tournament_summary(
+                    full_tournament_summary.sort_values(
+                        "champion_prob",
+                        ascending=False,
+                        kind="mergesort",
+                    ).head(8)
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+        with right:
+            st.caption("Finalist probability leaders")
+            st.dataframe(
+                prepare_full_tournament_summary(
+                    full_tournament_summary.sort_values(
+                        "reach_final_prob",
+                        ascending=False,
+                        kind="mergesort",
+                    ).head(8)
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+        if full_tournament_metadata:
+            st.caption(
+                "Knockout probabilities: "
+                f"{full_tournament_metadata['knockout_probability_source']}. "
+                "Draws are split evenly for advancement."
+            )
 
     left, right = st.columns(2)
     with left:
@@ -577,6 +698,7 @@ def _render_teams(
     current_table: pd.DataFrame,
     display_table: pd.DataFrame,
     simulation_summary: pd.DataFrame | None,
+    full_tournament_summary: pd.DataFrame | None,
 ) -> None:
     """Render team-focused view."""
     st.title("Teams")
@@ -615,6 +737,23 @@ def _render_teams(
                 format_number(forecast["avg_goal_difference"], decimals=2),
             )
 
+    if full_tournament_summary is not None and not full_tournament_summary.empty:
+        team_path = full_tournament_summary.loc[
+            full_tournament_summary["team"].eq(selected_team)
+        ]
+        if not team_path.empty:
+            path = team_path.iloc[0]
+            st.subheader("Knockout path simulation")
+            path_cols = st.columns(5)
+            path_cols[0].metric("Round of 16", format_percent(path["reach_round_of_16_prob"]))
+            path_cols[1].metric(
+                "Quarterfinal",
+                format_percent(path["reach_quarterfinal_prob"]),
+            )
+            path_cols[2].metric("Semifinal", format_percent(path["reach_semifinal_prob"]))
+            path_cols[3].metric("Final", format_percent(path["reach_final_prob"]))
+            path_cols[4].metric("Champion", format_percent(path["champion_prob"]))
+
     team_matches = display_table.loc[
         display_table["team_a"].astype(str).eq(selected_team)
         | display_table["team_b"].astype(str).eq(selected_team)
@@ -649,6 +788,8 @@ def _render_teams(
 def _render_simulation(
     simulation_summary: pd.DataFrame | None,
     simulation_metadata: dict[str, Any] | None,
+    full_tournament_summary: pd.DataFrame | None,
+    full_tournament_metadata: dict[str, Any] | None,
 ) -> None:
     """Render simulation outputs."""
     st.title("Simulation")
@@ -666,6 +807,41 @@ def _render_simulation(
     st.subheader("Advancement probabilities")
     _bar_chart(simulation_summary, "advance_prob", "Advance probability", n=16)
     _render_probability_table(simulation_summary, "advance_prob", n=16)
+
+    if full_tournament_summary is not None and not full_tournament_summary.empty:
+        st.subheader("Full tournament")
+        full_cols = st.columns(4)
+        full_cols[0].metric("Champion model", "Simulated")
+        full_cols[1].metric(
+            "Knockout source",
+            full_tournament_metadata.get("knockout_probability_source", "-")
+            if full_tournament_metadata
+            else "-",
+        )
+        full_cols[2].metric("Draw treatment", "50/50")
+        full_cols[3].metric("Champion prob sum", format_percent(full_tournament_summary["champion_prob"].sum()))
+
+        leader_left, leader_right = st.columns(2)
+        with leader_left:
+            st.caption("Champion probability")
+            _bar_chart(full_tournament_summary, "champion_prob", "Champion probability", n=12)
+        with leader_right:
+            st.caption("Final probability")
+            _bar_chart(full_tournament_summary, "reach_final_prob", "Final probability", n=12)
+
+        st.dataframe(
+            prepare_full_tournament_summary(
+                full_tournament_summary.sort_values(
+                    "champion_prob",
+                    ascending=False,
+                    kind="mergesort",
+                ).head(24)
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+        if full_tournament_metadata:
+            st.info(full_tournament_metadata["knockout_caveat"])
 
     left, right = st.columns(2)
     with left:
@@ -701,9 +877,10 @@ def _render_simulation(
         st.write(
             "The match model predicts win, draw, and loss probabilities. Exact "
             "scorelines are sampled from an empirical conditional layer so group "
-            "tables can use goal difference and goals scored. Knockout paths are "
-            "not simulated yet, and probabilities should not be treated as betting "
-            "advice."
+            "tables can use goal difference and goals scored. Knockout matches "
+            "use neutral-site path probabilities; regular-time draw mass is split "
+            "evenly to approximate extra time and penalties. These probabilities "
+            "should not be treated as betting advice."
         )
 
 
@@ -957,18 +1134,21 @@ def _render_methodology(prediction_metadata: dict[str, str]) -> None:
 
         <h2>Current Limitations and Future Extensions</h2>
         <p>
-        The dashboard does not yet simulate the knockout bracket. It does not
-        include player availability, injuries, expected lineups, market odds,
-        paid data feeds, or live event data such as shots, red cards, possession,
-        or expected goals. The scoreline layer is approximate. Calibration
-        caveats remain. The app is designed for forecasting interpretation and
-        portfolio demonstration, not betting advice.
+        The dashboard now simulates a first-pass knockout bracket after the
+        group stage. Knockout matchups are hypothetical until the bracket is
+        known, and regular-time draw probability is split evenly between teams
+        to approximate extra time and penalties. The dashboard does not include
+        player availability, injuries, expected lineups, market odds, paid data
+        feeds, or live event data such as shots, red cards, possession, or
+        expected goals. The scoreline and knockout layers are approximate.
+        Calibration caveats remain. The app is designed for forecasting
+        interpretation and portfolio demonstration, not betting advice.
         </p>
         <p>
         The natural next extensions are tournament-specific backtesting, richer
-        Elo variants, player-level squad features, market benchmarks, and a
-        true knockout simulation once bracket logic and fixture placeholders are
-        handled explicitly.
+        Elo variants, player-level squad features, market benchmarks, explicit
+        host/venue effects, and a separately modeled extra-time or penalty
+        shootout layer.
         </p>
 
         <h2>How to Read the Dashboard</h2>
@@ -978,8 +1158,8 @@ def _render_methodology(prediction_metadata: dict[str, str]) -> None:
         Use Groups to see standings and group-specific advancement paths. Use
         Matches to inspect individual scheduled predictions and completed
         results. Use Teams to see one team's current table position and forecast
-        outlook. Use Simulation to focus on advancement, group-winner, and
-        third-place qualification probabilities.
+        outlook. Use Simulation to focus on advancement, group-winner,
+        third-place qualification, finalist, and champion probabilities.
         </p>
         <p>
         The most important habit is to read every number as a probability over
@@ -1081,6 +1261,8 @@ def main() -> None:
 
     simulation_summary: pd.DataFrame | None = None
     simulation_metadata: dict[str, Any] | None = None
+    full_tournament_summary: pd.DataFrame | None = None
+    full_tournament_metadata: dict[str, Any] | None = None
     if predictions is not None:
         try:
             simulation_summary, simulation_metadata = cached_simulation(
@@ -1091,6 +1273,17 @@ def main() -> None:
             )
         except (FileNotFoundError, ValueError) as error:
             st.warning(f"Simulation could not be computed: {error}")
+        try:
+            full_tournament_summary, full_tournament_metadata = (
+                cached_full_tournament_simulation(
+                    fixtures,
+                    predictions,
+                    results,
+                    simulation_count,
+                )
+            )
+        except (FileNotFoundError, ValueError) as error:
+            st.warning(f"Full-tournament simulation could not be computed: {error}")
 
     if selected_page == "Overview":
         _render_overview(
@@ -1100,15 +1293,28 @@ def main() -> None:
             display_table,
             simulation_summary,
             simulation_metadata,
+            full_tournament_summary,
+            full_tournament_metadata,
         )
     elif selected_page == "Groups":
         _render_groups(fixtures, current_table, display_table, simulation_summary)
     elif selected_page == "Matches":
         _render_matches(display_table)
     elif selected_page == "Teams":
-        _render_teams(fixtures, current_table, display_table, simulation_summary)
+        _render_teams(
+            fixtures,
+            current_table,
+            display_table,
+            simulation_summary,
+            full_tournament_summary,
+        )
     elif selected_page == "Simulation":
-        _render_simulation(simulation_summary, simulation_metadata)
+        _render_simulation(
+            simulation_summary,
+            simulation_metadata,
+            full_tournament_summary,
+            full_tournament_metadata,
+        )
     else:
         _render_methodology(prediction_metadata)
 

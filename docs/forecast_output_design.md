@@ -136,7 +136,9 @@ This layer prepares the project for Monte Carlo tournament simulation by produci
 - favorite display text,
 - a simple display confidence label.
 
-The simulator can later consume these probabilities directly for group-stage and knockout-path draws without retraining the model or rebuilding feature logic.
+The simulator consumes these probabilities directly for group-stage draws and
+can use model-based or fallback neutral probabilities for hypothetical knockout
+matchups without retraining on 2026 completed results.
 
 The first simulator now consumes these probability rows for group-stage simulations. It samples the full 3-class distribution, not just the favorite, which lets draws affect group standings naturally.
 
@@ -144,6 +146,12 @@ When `data/tournament/results_2026.csv` is available, the simulator fixes those
 completed outcomes and samples only remaining unplayed matches. This separates
 live tournament-state simulation from a backfilled ex-ante simulation that
 samples every row from reconstructed probabilities.
+
+The full-tournament simulator extends the display layer with path estimates:
+Round of 32, Round of 16, quarterfinal, semifinal, final, and champion
+probabilities. These are simulated path estimates, not fixed bracket facts.
+Knockout draw probability is split evenly between teams for advancement until a
+separate extra-time or penalty model exists.
 
 `scripts/generate_fixture_predictions.py` can print predictions or, only when `--output` is supplied, write `data/tournament/fixture_predictions_2026.csv` for the simulation script. No model artifacts or processed feature files are written by default.
 

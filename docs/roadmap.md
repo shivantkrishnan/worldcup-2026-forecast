@@ -30,6 +30,8 @@ Concise roadmap and extension backlog for the World Cup 2026 Forecasting Dashboa
 - Live remaining-fixture prediction generation using completed 2026 results for feature state only.
 - Consumer-facing Streamlit dashboard with overview, group, match, team, simulation, and methodology views.
 - Public Streamlit deployment snapshot policy and scheduled GitHub Actions refresh workflow.
+- First full-tournament knockout simulation through champion probability.
+- Streamlit champion, finalist, and team knockout-path probability displays.
 
 ## Current Selected Baseline
 
@@ -61,8 +63,9 @@ After each variant:
 - Maintain `data/tournament/results_2026.csv` so live simulations fix completed matches instead of sampling backfilled predictions.
 - Monitor the scheduled public-demo refresh workflow as the group stage progresses.
 - Validate or refine the conditional scoreline layer against historical tournaments.
-- Extend Monte Carlo simulation from group-stage only to knockout brackets.
-- Output group qualification, knockout advancement, finalist, and champion probabilities.
+- Replace the first-pass third-place constrained-matching bracket assignment
+  with the official Annex C table.
+- Validate knockout-path estimates against historical tournaments.
 - Distinguish pre-tournament, live, and backfilled forecasts.
 
 ## Product/UI Roadmap
@@ -82,6 +85,7 @@ After each variant:
 - Bootstrapped uncertainty intervals.
 - Tournament-specific backtesting over prior World Cups or major tournaments.
 - Calibrated scoreline/goals model beyond the current conditional simulation layer.
+- Explicit extra-time and penalty-shootout model for knockouts.
 - Richer event-data features if reliable data becomes available.
 
 ## Not Yet in Scope

@@ -252,6 +252,37 @@ def prepare_probability_summary(
     )
 
 
+def prepare_full_tournament_summary(summary: pd.DataFrame) -> pd.DataFrame:
+    """Return a formatted full-tournament simulation table."""
+    output = summary.copy(deep=True)
+    label_map = {
+        "reach_round_of_32_prob": "Round of 32",
+        "reach_round_of_16_prob": "Round of 16",
+        "reach_quarterfinal_prob": "Quarterfinal",
+        "reach_semifinal_prob": "Semifinal",
+        "reach_final_prob": "Final",
+        "champion_prob": "Champion",
+        "advance_from_group_prob": "Advance",
+    }
+    for source_column, display_column in label_map.items():
+        if source_column in output.columns:
+            output[display_column] = output[source_column].map(format_percent)
+
+    columns = [
+        "team",
+        "group",
+        "Advance",
+        "Round of 16",
+        "Quarterfinal",
+        "Semifinal",
+        "Final",
+        "Champion",
+    ]
+    return output[[column for column in columns if column in output.columns]].copy(
+        deep=True
+    )
+
+
 def get_teams_from_fixtures(fixtures: pd.DataFrame) -> list[str]:
     """Return sorted unique teams from the fixture table."""
     teams = pd.concat([fixtures["team_a"], fixtures["team_b"]], ignore_index=True)

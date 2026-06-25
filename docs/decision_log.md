@@ -599,3 +599,30 @@ goals scored, optional conduct/ranking fields, and seeded random fallback.
 Best-third-place ranking uses points, goal difference, goals for, optional
 conduct/ranking fields, and seeded random fallback. Knockout simulation remains
 out of scope.
+
+## 2026-06-24
+
+### Decision
+
+Add a first-pass full-tournament knockout simulator through champion
+probability.
+
+### Rationale
+
+The dashboard should translate group-stage uncertainty into full path
+uncertainty: Round of 32, Round of 16, quarterfinal, semifinal, final, and
+champion probabilities. The official 2026 format advances 12 group winners, 12
+group runners-up, and 8 best third-place teams, so the knockout layer must be
+explicit about bracket assignment rather than silently inventing a draw.
+
+### Implications for Modeling/Product
+
+The Round-of-32 slot pools are encoded from the published schedule structure,
+but the full FIFA Annex C third-place combination table is not yet encoded.
+Qualified third-place teams are assigned by deterministic constrained matching
+within eligible slot pools and should be replaced by the official Annex C table
+before the bracket logic is treated as final. Knockout advancement splits
+regular-time draw probability evenly between teams as a transparent first-pass
+extra-time/penalty approximation. The local script can use selected-model
+neutral matchup probabilities when raw historical data is available; the public
+app uses a clearly labeled snapshot-strength fallback when raw data is absent.

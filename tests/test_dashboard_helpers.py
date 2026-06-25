@@ -4,6 +4,7 @@ from src.presentation.dashboard import (
     build_current_group_table,
     format_percent,
     get_teams_from_fixtures,
+    prepare_full_tournament_summary,
     prepare_match_table,
 )
 
@@ -138,3 +139,26 @@ def test_format_percent_handles_missing_values() -> None:
 
 def test_get_teams_from_fixtures_returns_sorted_unique_teams() -> None:
     assert get_teams_from_fixtures(make_fixtures()) == ["Alpha", "Beta", "Gamma"]
+
+
+def test_prepare_full_tournament_summary_formats_path_probabilities() -> None:
+    summary = pd.DataFrame(
+        [
+            {
+                "team": "Alpha",
+                "group": "A",
+                "advance_from_group_prob": 0.8,
+                "reach_round_of_16_prob": 0.55,
+                "reach_quarterfinal_prob": 0.3,
+                "reach_semifinal_prob": 0.2,
+                "reach_final_prob": 0.1,
+                "champion_prob": 0.04,
+            }
+        ]
+    )
+
+    table = prepare_full_tournament_summary(summary)
+
+    assert table.loc[0, "Champion"] == "4.0%"
+    assert table.loc[0, "Final"] == "10.0%"
+    assert table.loc[0, "Advance"] == "80.0%"
